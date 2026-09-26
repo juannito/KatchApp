@@ -36,7 +36,7 @@ struct ContactMatch: Hashable {
 @MainActor
 final class ContactStore: ObservableObject {
     static let fileName = "contacts.json"
-    static let avatarsFolder = "avatars"
+    nonisolated static let avatarsFolder = "avatars"
     static let suggestThreshold: Float = 0.70  // synthetic voices score ~0.72 across speakers; calibrate with real voices
     static let maxEmbeddingsPerContact = 12
 
@@ -44,9 +44,9 @@ final class ContactStore: ObservableObject {
     private(set) var rootURL: URL
     private var avatarCache: [String: NSImage] = [:]
 
+    /// No disk access here (see SessionStore.init); call `reload()` once the window is up.
     init(rootURL: URL) {
         self.rootURL = rootURL
-        reload()
     }
 
     func setRoot(_ url: URL) {
@@ -59,12 +59,21 @@ final class ContactStore: ObservableObject {
     private var avatarsURL: URL { rootURL.appendingPathComponent(Self.avatarsFolder, isDirectory: true) }
 
     func reload() {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        if let data = try? Data(contentsOf: fileURL), let list = try? decoder.decode([Contact].self, from: data) {
-            contacts = list.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        } else {
-            contacts = []
+        let url = fileURL
+        let root = rootURL
+        Task.detached(priority: .userInitiated) {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let list: [Contact]
+            if let data = try? Data(contentsOf: url), let decoded = try? decoder.decode([Contact].self, from: data) {
+                list = decoded.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            } else {
+                list = []
+            }
+            await MainActor.run {
+                guard self.rootURL == root else { return }
+                self.contacts = list
+            }
         }
     }
 

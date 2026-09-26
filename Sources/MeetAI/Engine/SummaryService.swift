@@ -4,8 +4,8 @@ import SwiftUI
 /// Runs summaries in the background and persists them next to each session.
 @MainActor
 final class SummaryService: ObservableObject {
-    static let jsonFile = "summary.json"
-    static let markdownFile = "summary.md"
+    nonisolated static let jsonFile = "summary.json"
+    nonisolated static let markdownFile = "summary.md"
 
     @Published private(set) var inProgress: Set<String> = []   // session folder paths
     @Published private(set) var errors: [String: String] = [:]  // folder path -> message
@@ -20,14 +20,14 @@ final class SummaryService: ObservableObject {
     func isRunning(_ folder: URL) -> Bool { inProgress.contains(folder.path) }
     func error(for folder: URL) -> String? { errors[folder.path] }
 
-    static func read(at folder: URL) -> MeetingSummary? {
+    nonisolated static func read(at folder: URL) -> MeetingSummary? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let data = try? Data(contentsOf: folder.appendingPathComponent(jsonFile)) else { return nil }
         return try? decoder.decode(MeetingSummary.self, from: data)
     }
 
-    static func write(_ summary: MeetingSummary, to folder: URL) throws {
+    nonisolated static func write(_ summary: MeetingSummary, to folder: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

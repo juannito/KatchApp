@@ -39,6 +39,10 @@ struct MeetAIApp: App {
                 .frame(minWidth: 760, minHeight: 520)
                 .task {
                     NSApplication.shared.activate(ignoringOtherApps: true)
+                    // First disk access happens here, with the window already visible, so the
+                    // macOS "access Documents" prompt never blocks the launch.
+                    sessionStore.reload()
+                    contacts.reload()
                     await modelStore.loadIfNeeded()
                     if let models = modelStore.models {
                         session.attach(models: models, store: sessionStore, contacts: contacts)

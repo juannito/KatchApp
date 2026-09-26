@@ -24,5 +24,13 @@ if [ -f scripts/AppIcon.icns ]; then
   cp scripts/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
   /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$APP/Contents/Info.plist" 2>/dev/null || true
 fi
-codesign --force --deep --sign - "$APP"
+# Sign with a real Apple Development identity when one exists: a stable identity keeps the
+# macOS privacy grants (microphone, system audio, Documents) across rebuilds. Ad hoc otherwise.
+IDENTITY="${CODESIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"')}"
+if [ -n "$IDENTITY" ]; then
+  echo "signing with: $IDENTITY"
+  codesign --force --deep --options runtime --timestamp=none --sign "$IDENTITY" "$APP"
+else
+  codesign --force --deep --sign - "$APP"
+fi
 echo "OK -> $APP"

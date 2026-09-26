@@ -17,12 +17,12 @@ struct SessionSummary: Identifiable, Hashable {
 /// Sessions folder (user-configurable), projects (subfolders) and the history list.
 @MainActor
 final class SessionStore: ObservableObject {
-    static let rootDefaultsKey = "sessionsRootPath"
-    static let transcriptFile = "transcript.json"
-    static let markdownFile = "transcript.md"
-    static let audioFile = "audio.wav"
-    static let projectsFile = "projects.json"
-    static let reservedFolders: Set<String> = [ContactStore.avatarsFolder]
+    nonisolated static let rootDefaultsKey = "sessionsRootPath"
+    nonisolated static let transcriptFile = "transcript.json"
+    nonisolated static let markdownFile = "transcript.md"
+    nonisolated static let audioFile = "audio.wav"
+    nonisolated static let projectsFile = "projects.json"
+    nonisolated static let reservedFolders: Set<String> = [ContactStore.avatarsFolder]
 
     @Published private(set) var sessions: [SessionSummary] = []
     @Published private(set) var projects: [String] = []
@@ -35,9 +35,10 @@ final class SessionStore: ObservableObject {
         var hidden: [String]
     }
 
+    /// No disk access here: the first read of ~/Documents can block on macOS's permission
+    /// dialog, and that must happen after the window is on screen (see `reload()`).
     init() {
         rootURL = Self.storedRoot()
-        reload()
     }
 
     static func defaultRoot() -> URL {
@@ -155,34 +156,57 @@ final class SessionStore: ObservableObject {
 
     // MARK: - History
 
+    private struct Scan: Sendable {
+        var sessions: [SessionSummary]
+        var projects: [String]
+        var hidden: Set<String>
+    }
+
+    /// Rescans the sessions folder on a background thread and publishes the result.
     func reload() {
+        let root = rootURL
+        Task.detached(priority: .userInitiated) {
+            let scan = Self.scan(root: root)
+            await MainActor.run {
+                guard self.rootURL == root else { return }
+                self.hiddenProjects = scan.hidden
+                self.projects = scan.projects
+                self.sessions = scan.sessions
+            }
+        }
+    }
+
+    nonisolated private static func scan(root: URL) -> Scan {
         let fm = FileManager.default
         var foundSessions: [SessionSummary] = []
         var foundProjects: [String] = []
-        if let data = try? Data(contentsOf: rootURL.appendingPathComponent(Self.projectsFile)),
+        var hidden: Set<String> = []
+        if let data = try? Data(contentsOf: root.appendingPathComponent(projectsFile)),
             let file = try? JSONDecoder().decode(ProjectsFile.self, from: data)
         {
-            hiddenProjects = Set(file.hidden)
+            hidden = Set(file.hidden)
         }
-        if let entries = try? fm.contentsOfDirectory(at: rootURL, includingPropertiesForKeys: [.isDirectoryKey]) {
+        if let entries = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey]) {
             for entry in entries {
                 guard (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
                 let name = entry.lastPathComponent
-                if Self.reservedFolders.contains(name) { continue }
-                if let summary = Self.summary(for: entry, project: nil) {
+                if reservedFolders.contains(name) { continue }
+                if let summary = summary(for: entry, project: nil) {
                     foundSessions.append(summary)
                 } else {
                     foundProjects.append(name)
                     if let subs = try? fm.contentsOfDirectory(at: entry, includingPropertiesForKeys: [.isDirectoryKey]) {
                         for sub in subs {
-                            if let summary = Self.summary(for: sub, project: name) { foundSessions.append(summary) }
+                            if let summary = summary(for: sub, project: name) { foundSessions.append(summary) }
                         }
                     }
                 }
             }
         }
-        projects = foundProjects.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-        sessions = foundSessions.sorted { $0.startedAt > $1.startedAt }
+        return Scan(
+            sessions: foundSessions.sorted { $0.startedAt > $1.startedAt },
+            projects: foundProjects.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
+            hidden: hidden)
     }
 
     /// Sessions visible under the current privacy setting, optionally filtered by project.
@@ -201,7 +225,7 @@ final class SessionStore: ObservableObject {
         sessions.filter { $0.contactIDs.contains(id) && (showHidden || !isHidden($0.project)) }
     }
 
-    private static func summary(for folder: URL, project: String?) -> SessionSummary? {
+    nonisolated private static func summary(for folder: URL, project: String?) -> SessionSummary? {
         let json = folder.appendingPathComponent(transcriptFile)
         guard FileManager.default.fileExists(atPath: json.path), let doc = readDocument(at: folder) else { return nil }
         let id = project.map { "\($0)/\(folder.lastPathComponent)" } ?? folder.lastPathComponent
@@ -211,7 +235,7 @@ final class SessionStore: ObservableObject {
             project: project, contactIDs: Set(doc.speakerContacts.values))
     }
 
-    static func readDocument(at folder: URL) -> SessionDocument? {
+    nonisolated static func readDocument(at folder: URL) -> SessionDocument? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let data = try? Data(contentsOf: folder.appendingPathComponent(transcriptFile)) else { return nil }
@@ -223,7 +247,7 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    static func write(_ doc: SessionDocument, to folder: URL) throws {
+    nonisolated static func write(_ doc: SessionDocument, to folder: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
