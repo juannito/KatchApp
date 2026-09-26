@@ -62,14 +62,6 @@ final class MixBus {
             var out = [Float](repeating: 0, count: frame)
             var micEnergy: Float = 0
             var sysEnergy: Float = 0
-            if micEnabled && !padMic {
-                for i in 0..<frame {
-                    let v = mic[i]
-                    out[i] += v
-                    micEnergy += v * v
-                }
-                mic.removeFirst(frame)
-            }
             if sysEnabled && !padSys {
                 for i in 0..<frame {
                     let v = sys[i]
@@ -77,6 +69,19 @@ final class MixBus {
                     sysEnergy += v * v
                 }
                 sys.removeFirst(frame)
+            }
+            if micEnabled && !padMic {
+                for i in 0..<frame { micEnergy += mic[i] * mic[i] }
+                // Echo ducking: without headphones the microphone re-captures the remote side
+                // a few ms later, and the diarizer then hears every remote voice twice. While the
+                // system track clearly dominates, the mic contributes only a whisper; when the
+                // local user actually talks over it, the mic is louder and passes through.
+                let micRMS = (micEnergy / Float(frame)).squareRoot()
+                let sysRMS = (sysEnergy / Float(frame)).squareRoot()
+                let duck: Float = (sysEnabled && !padSys && sysRMS > 0.004 && micRMS < sysRMS * 2.5) ? 0.05 : 1
+                for i in 0..<frame { out[i] += mic[i] * duck }
+                if duck < 1 { micEnergy *= duck * duck }
+                mic.removeFirst(frame)
             }
             for i in 0..<frame { out[i] = max(-1, min(1, out[i])) }
             chunks.append(MixedChunk(

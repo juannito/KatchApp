@@ -339,7 +339,7 @@ final class RecordingSession: ObservableObject {
         }
         AppLog.write("session saved: \(folder.lastPathComponent) title=\(doc.displayTitle) project=\(project ?? "-") links=\(links.count)")
         pendingSave = nil
-        speakerSuggestions = [:]
+        clearLiveState()
     }
 
     /// Creates a contact for a speaker slot, seeded with its voice embedding.
@@ -357,13 +357,22 @@ final class RecordingSession: ObservableObject {
         }
         store?.reload()
         pendingSave = nil
+        clearLiveState()
+    }
+
+    /// Back to an empty "New meeting" view (after save or discard).
+    private func clearLiveState() {
         speakerSuggestions = [:]
+        liveLinks = [:]
+        liveEmbeddings = [:]
         sessionFolder = nil
         document = nil
         segments = []
         speakerNames = [:]
         speakerMicFraction = [:]
+        platformName = nil
         elapsed = 0
+        message = nil
     }
 
     private func cleanupCapture() {
