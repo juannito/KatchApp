@@ -238,6 +238,13 @@ enum L10n {
             "Log folder": "Carpeta de logs",
             "Open": "Abrir",
             "Acknowledgments": "Agradecimientos",
+            "Size on disk (audio, transcript, summary)": "Tamaño en disco (audio, transcript, resumen)",
+            "Delete this meeting and all its files": "Eliminar esta reunión y todos sus archivos",
+            "Delete this meeting permanently?": "¿Eliminar esta reunión definitivamente?",
+            "“%@” and all its files (audio, transcript, summary — %@) will be deleted. This cannot be undone and does not go through the Trash.":
+                "Se van a eliminar “%@” y todos sus archivos (audio, transcript, resumen: %@). No se puede deshacer y no pasa por la Papelera.",
+            "Type DELETE to confirm:": "Escribí DELETE para confirmar:",
+            "Delete permanently": "Eliminar definitivamente",
             "It helps me keep making things like this.": "Me ayuda a seguir creando cosas como esta.",
             "Meetings": "Reuniones",
             "Capture": "Captura",

@@ -285,6 +285,29 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// Total size of a session folder (audio.wav dominates), in bytes.
+    nonisolated static func folderSize(_ folder: URL) -> Int64 {
+        let fm = FileManager.default
+        guard let e = fm.enumerator(at: folder, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) else { return 0 }
+        var total: Int64 = 0
+        for case let url as URL in e {
+            let v = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            if v?.isRegularFile == true { total += Int64(v?.fileSize ?? 0) }
+        }
+        return total
+    }
+
+    /// Permanently deletes a session folder (audio, transcript, summary). Not recoverable.
+    func deletePermanently(_ session: SessionSummary) {
+        do {
+            try FileManager.default.removeItem(at: session.folder)
+            AppLog.write("session deleted permanently: \(session.id)")
+        } catch {
+            AppLog.write("permanent delete failed: \(error)")
+        }
+        reload()
+    }
+
     /// Moves the session folder to the Trash (recoverable).
     func delete(_ session: SessionSummary) {
         do {

@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.8.0 — 2026-09-26
+
+- Session detail shows the size on disk and has a permanent delete (audio, transcript, summary) that requires typing DELETE.
+
 ## 0.7.3 — 2026-09-26
 
 - About: author links to x.com/juannito, bio and "buy me a coffee" note. README: install guide.

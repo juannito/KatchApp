@@ -14,6 +14,9 @@ struct SessionDetailView: View {
     @State private var title = ""
     @State private var loadFailed = false
     @State private var tab: Tab = .transcript
+    @State private var folderSize: Int64 = 0
+    @State private var showDelete = false
+    @State private var deleteConfirmation = ""
 
     enum Tab: Hashable { case transcript, summary }
 
@@ -122,6 +125,30 @@ struct SessionDetailView: View {
             }
         }
         .task(id: summary.id) { load() }
+        .sheet(isPresented: $showDelete) {
+            VStack(alignment: .leading, spacing: 14) {
+                Label(L("Delete this meeting permanently?"), systemImage: "exclamationmark.triangle.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.red)
+                Text(L("“%@” and all its files (audio, transcript, summary — %@) will be deleted. This cannot be undone and does not go through the Trash.",
+                    summary.title, ByteCountFormatter.string(fromByteCount: folderSize, countStyle: .file)))
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L("Type DELETE to confirm:")).font(.callout).foregroundStyle(.secondary)
+                TextField("DELETE", text: $deleteConfirmation)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { if deleteConfirmation == "DELETE" { performDelete() } }
+                HStack {
+                    Button(L("Cancel")) { showDelete = false }.keyboardShortcut(.cancelAction)
+                    Spacer()
+                    Button(L("Delete permanently"), role: .destructive) { performDelete() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .disabled(deleteConfirmation != "DELETE")
+                }
+            }
+            .padding(24)
+            .frame(width: 460)
+        }
         .onChange(of: query) { _, _ in matchIndex = max(matchIDs.count - 1, 0) }
         .onChange(of: document == nil) { _, _ in matchIndex = max(matchIDs.count - 1, 0) }
     }
@@ -169,7 +196,15 @@ struct SessionDetailView: View {
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            Text(ByteCountFormatter.string(fromByteCount: folderSize, countStyle: .file))
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .help(L("Size on disk (audio, transcript, summary)"))
             Spacer()
+            Button(role: .destructive) { deleteConfirmation = ""; showDelete = true } label: {
+                Image(systemName: "trash")
+            }
+            .help(L("Delete this meeting and all its files"))
             Button(L("Copy transcript")) {
                 var d = doc
                 d.speakerNames = doc.effectiveNames(contactNames: contactNames)
@@ -190,6 +225,18 @@ struct SessionDetailView: View {
         } else {
             loadFailed = true
         }
+        let folder = summary.folder
+        Task.detached {
+            let size = SessionStore.folderSize(folder)
+            await MainActor.run { folderSize = size }
+        }
+    }
+
+    private func performDelete() {
+        guard deleteConfirmation == "DELETE" else { return }
+        showDelete = false
+        store.deletePermanently(summary)
+        selection = .live
     }
 
     private func persist() {
