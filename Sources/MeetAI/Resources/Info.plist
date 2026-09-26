@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>es</string>
+	<key>CFBundleDisplayName</key>
+	<string>MeetAI</string>
 	<key>CFBundleExecutable</key>
 	<string>MeetAI</string>
 	<key>CFBundleIdentifier</key>
@@ -12,23 +14,21 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>MeetAI</string>
-	<key>CFBundleDisplayName</key>
-	<string>MeetAI</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>MeetAI graba tu voz para transcribir la reunión localmente.</string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>MeetAI captura el audio de las apps de reuniones (Zoom, Meet, Teams) para transcribir a los demás participantes. Nada sale de tu Mac.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MeetAI graba tu voz para transcribir la reunión localmente.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>

@@ -1,0 +1,18 @@
+# Changelog
+
+Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
+
+## 0.2.0 — 2026-09-26
+
+- Historial de sesiones en la barra lateral, diálogo de guardado con título, descartar a la Papelera.
+- Proyectos como carpetas, con filtro y proyectos ocultos (se resetea en cada arranque).
+- Contactos con foto, huella de voz (CAM++), sugerencias con score al guardar y **en vivo** durante la grabación, contacto "Este soy yo".
+- Crear contactos desde sesiones viejas: la huella se calcula bajo demanda desde el audio.
+- Resumen de la reunión con LLM: Ollama (con descarga de modelos desde Ajustes), OpenAI-compatible y Anthropic; automático al guardar o manual por sesión; instrucciones editables.
+- Ajustes: idioma (inglés por defecto, español), carpeta de sesiones, proyectos, resumen.
+- Ventana About con créditos, licencia MIT, bio y Buy Me a Coffee.
+- Arreglos: ventana recortada, arranque sin ventana por el permiso de Documentos, firma con certificado de desarrollador y entitlement de micrófono.
+
+## 0.1.0 — 2026-09-26
+
+- Primera versión: grabación de micrófono + audio del sistema, transcripción en vivo (Parakeet TDT v3) y separación de hablantes (Nemotron 3 Diarization), todo local. Export a Markdown y JSON.
