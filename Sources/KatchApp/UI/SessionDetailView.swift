@@ -186,7 +186,6 @@ struct SessionDetailView: View {
             .fixedSize()
         }
         .padding(16)
-        .padding(.trailing, 28)
     }
 
     private func footer(_ doc: SessionDocument) -> some View {

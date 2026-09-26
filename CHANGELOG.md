@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.9.2 — 2026-09-26
+
+- Theme toggle back in the window toolbar. New-project and show-hidden buttons live in the History header inside the sidebar, so nothing can overflow into a ">>" menu.
+
 ## 0.9.1 — 2026-09-26
 
 - Removed the explanatory paragraph under "Press Record meeting to start".

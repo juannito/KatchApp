@@ -24,10 +24,8 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             detailContent
-                .overlay(alignment: .topTrailing) {
-                    ThemeToggleButton()
-                        .buttonStyle(.borderless)
-                        .padding(10)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) { ThemeToggleButton() }
                 }
         }
         .onAppear { installTabShortcut() }
@@ -171,7 +169,16 @@ struct SessionsSidebar: View {
                 }
             }
             header: {
-                Text(L("History"))
+                HStack(spacing: 10) {
+                    Text(L("History"))
+                    Spacer()
+                    Button { showNewProject = true } label: { Image(systemName: "folder.badge.plus") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help(L("New project…"))
+                    Button { store.showHidden.toggle() } label: { Image(systemName: store.showHidden ? "eye" : "eye.slash") }
+                        .buttonStyle(.plain).foregroundStyle(store.showHidden ? Color.accentColor : Color.secondary)
+                        .help(L("Show hidden projects"))
+                }
             }
             Section(L("Contacts")) {
                 if contacts.contacts.isEmpty {
@@ -196,19 +203,7 @@ struct SessionsSidebar: View {
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar, prompt: L("Search meetings"))
-        .toolbar {
-            if sidebarVisible {
-                ToolbarItem {
-                    Button { showNewProject = true } label: { Image(systemName: "folder.badge.plus") }
-                        .help(L("New project…"))
-                }
-                ToolbarItem {
-                    Toggle(isOn: $store.showHidden) { Image(systemName: store.showHidden ? "eye" : "eye.slash") }
-                        .toggleStyle(.button)
-                        .help(L("Show hidden projects"))
-                }
-            }
-        }
+
 
         .alert(L("New project"), isPresented: $showNewProject) {
             TextField(L("Project name"), text: $newProjectName)
@@ -376,7 +371,6 @@ struct LiveView: View {
             LevelMeters()
         }
         .padding(16)
-        .padding(.trailing, 28)  // room for the floating theme button
     }
 
     private var footer: some View {
