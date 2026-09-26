@@ -83,6 +83,7 @@ struct SpeakerRowModel: Identifiable {
     let contactName: String?
     let contact: Contact?
     let isLikelyMe: Bool
+    var suggestion: (name: String, score: Float, contactID: String)? = nil
 }
 
 /// Speaker list with inline renaming and optional contact linking.
@@ -92,6 +93,7 @@ struct SpeakersPanel: View {
     let onRename: (Int, String) -> Void
     let onLink: ((Int, String?) -> Void)?
     var onCreateContact: ((Int, String) -> Void)? = nil
+    var onConfirmSuggestion: ((Int, String) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -106,7 +108,8 @@ struct SpeakersPanel: View {
                     row: row, contacts: contacts,
                     onRename: { onRename(row.slot, $0) },
                     onLink: onLink.map { link in { link(row.slot, $0) } },
-                    onCreateContact: onCreateContact.map { create in { create(row.slot, $0) } })
+                    onCreateContact: onCreateContact.map { create in { create(row.slot, $0) } },
+                    onConfirmSuggestion: onConfirmSuggestion.map { confirm in { confirm(row.slot, $0) } })
             }
             Spacer()
             Text(L("Click a name to rename it and press Enter. Saved to transcript.md and transcript.json."))
@@ -125,6 +128,7 @@ struct SpeakerRow: View {
     let onRename: (String) -> Void
     let onLink: ((String?) -> Void)?
     var onCreateContact: ((String) -> Void)? = nil
+    var onConfirmSuggestion: ((String) -> Void)? = nil
     @State private var draft = ""
 
     var body: some View {
@@ -171,6 +175,14 @@ struct SpeakerRow: View {
                     .frame(width: 28)
                     .help(L("Contact"))
                 }
+            }
+            if let sg = row.suggestion, row.contact == nil, let onConfirmSuggestion {
+                HStack(spacing: 6) {
+                    Image(systemName: "waveform.badge.magnifyingglass").foregroundStyle(.secondary)
+                    Text(L("Looks like %@ (%d%%)", sg.name, Int((sg.score * 100).rounded()))).font(.caption)
+                    Button(L("Confirm")) { onConfirmSuggestion(sg.contactID) }.controlSize(.mini)
+                }
+                .padding(.leading, 20)
             }
         }
     }

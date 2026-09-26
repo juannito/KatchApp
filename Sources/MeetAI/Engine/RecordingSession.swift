@@ -27,8 +27,11 @@ final class RecordingSession: ObservableObject {
     @Published var systemAudioEnabled = true
     /// Set after `stop()`: the UI shows the save sheet.
     @Published var pendingSave: SessionDocument?
-    /// Voice-recognition suggestions per speaker slot, computed when the recording stops.
+    /// Voice-recognition suggestions per speaker slot (live while recording, refined on stop).
     @Published var speakerSuggestions: [Int: ContactMatch] = [:]
+    /// Contacts confirmed during the recording (slot -> contact id); prefilled in the save sheet.
+    @Published var liveLinks: [Int: String] = [:]
+    private var liveEmbeddings: [Int: [Float]] = [:]
     /// Set when a capture permission is missing; the UI offers a shortcut to System Settings.
     @Published var permissionHelp: PermissionKind?
 
@@ -87,6 +90,8 @@ final class RecordingSession: ObservableObject {
         permissionHelp = nil
         pendingSave = nil
         speakerSuggestions = [:]
+        liveLinks = [:]
+        liveEmbeddings = [:]
         segments = []
         speakerNames = [:]
         speakerMicFraction = [:]
@@ -216,11 +221,13 @@ final class RecordingSession: ObservableObject {
         AppLog.write("recording stopped: \(segments.count) segments, \(speakerSlots.count) speakers")
 
         status = .analyzing
-        doc.speakerEmbeddings = await computeEmbeddings(ranges: ranges)
+        var embeddings = await computeEmbeddings(ranges: ranges)
+        for (slot, e) in liveEmbeddings where embeddings[slot] == nil { embeddings[slot] = e }
+        doc.speakerEmbeddings = embeddings
         document = doc
-        var suggestions: [Int: ContactMatch] = [:]
+        var suggestions = speakerSuggestions
         if let contacts {
-            for (slot, emb) in doc.speakerEmbeddings {
+            for (slot, emb) in doc.speakerEmbeddings where liveLinks[slot] == nil {
                 if let m = contacts.bestMatch(for: emb) { suggestions[slot] = m }
             }
         }
@@ -322,6 +329,14 @@ final class RecordingSession: ObservableObject {
             }
         case .speakerMicFraction(let fractions):
             for (k, v) in fractions { speakerMicFraction[k] = v }
+        case .speakerEmbedding(let slot, let embedding):
+            liveEmbeddings[slot] = embedding
+            guard liveLinks[slot] == nil, let contacts else { return }
+            if let m = contacts.bestMatch(for: embedding), !liveLinks.values.contains(m.contactID) {
+                speakerSuggestions[slot] = m
+            } else {
+                speakerSuggestions[slot] = nil
+            }
         case .vad(let p):
             vadProbability = p
         case .warning(let text):
@@ -343,7 +358,27 @@ final class RecordingSession: ObservableObject {
     }
 
     func displayName(for slot: Int?) -> String {
-        SpeakerLabel.name(for: slot, names: speakerNames)
+        if let slot, let cid = liveLinks[slot], let c = contacts?.contact(cid) { return c.name }
+        return SpeakerLabel.name(for: slot, names: speakerNames)
+    }
+
+    /// Accept a live suggestion (or any contact) for a speaker while recording.
+    func linkLive(slot: Int, to contactID: String?) {
+        if let contactID {
+            liveLinks[slot] = contactID
+            speakerSuggestions[slot] = nil
+        } else {
+            liveLinks[slot] = nil
+        }
+    }
+
+    /// Names with live contact links applied (for the live transcript).
+    var liveNames: [Int: String] {
+        var names = speakerNames
+        for (slot, cid) in liveLinks {
+            if let c = contacts?.contact(cid) { names[slot] = c.name }
+        }
+        return names
     }
 
     // MARK: - Persistence

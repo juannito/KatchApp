@@ -8,6 +8,7 @@ actor TranscriptionEngine {
         case transcribed(TranscriptSegment)                       // text available, speaker pending
         case attributed(replacing: UUID, with: [TranscriptSegment])
         case speakerMicFraction([Int: Double])
+        case speakerEmbedding(slot: Int, embedding: [Float])
         case vad(Float)
         case warning(String)
     }
@@ -28,6 +29,10 @@ actor TranscriptionEngine {
     private let asr: AsrManager
     private let vad: VadManager
     private let diarizer: Nemotron3Diarizer
+    private let fingerprinter: VoiceFingerprinter?
+    private var embeddedSeconds: [Int: Double] = [:]   // exclusive speech already fingerprinted, per slot
+    private var embeddingInFlight: Set<Int> = []
+    private static let liveEmbeddingStep = 5.0         // seconds of new clean speech before re-embedding
     private let numSpeakers: Int
     private let config: Config
 
@@ -66,6 +71,7 @@ actor TranscriptionEngine {
         self.asr = models.asr
         self.vad = models.vad
         self.diarizer = Nemotron3Diarizer(config: models.diarizerConfig, models: models.diarizerModels)
+        self.fingerprinter = models.fingerprinter
         self.numSpeakers = models.diarizerConfig.numSpeakers
         self.config = config
         self.vadState = VadStreamState.initial()
@@ -107,6 +113,44 @@ actor TranscriptionEngine {
         }
 
         resolvePending(force: false)
+        scheduleLiveEmbeddings()
+    }
+
+    /// Fingerprints speakers while recording: whenever a slot has accumulated enough new
+    /// single-speaker audio inside the rolling buffer, embed it and emit the result.
+    private func scheduleLiveEmbeddings() {
+        guard let fingerprinter, diarFrames > 0 else { return }
+        let bufferStart = Double(audioOffset) / Double(Self.sampleRate)
+        let ranges = exclusiveSpeechRanges()
+        for (slot, all) in ranges {
+            guard !embeddingInFlight.contains(slot) else { continue }
+            let total = all.reduce(0) { $0 + $1.duration }
+            guard total - (embeddedSeconds[slot] ?? 0) >= Self.liveEmbeddingStep else { continue }
+            let usable = all.filter { $0.start >= bufferStart }
+            let usableSeconds = usable.reduce(0) { $0 + $1.duration }
+            guard usableSeconds >= VoiceFingerprinter.minSeconds else { continue }
+            embeddedSeconds[slot] = total
+            embeddingInFlight.insert(slot)
+            // Copy the audio the fingerprinter needs so the buffer can keep rolling.
+            let lo = audioOffset
+            let audioCopy = audio
+            let offsetRanges = usable.map { TimeRange(start: $0.start - bufferStart, end: $0.end - bufferStart) }
+            Task { [weak self] in
+                var result: [Float]? = nil
+                do {
+                    result = try await fingerprinter.embed(sessionAudio: audioCopy, ranges: offsetRanges)
+                } catch {
+                    AppLog.write("live embedding failed for slot \(slot): \(error)")
+                }
+                _ = lo
+                await self?.liveEmbeddingFinished(slot: slot, embedding: result)
+            }
+        }
+    }
+
+    private func liveEmbeddingFinished(slot: Int, embedding: [Float]?) {
+        embeddingInFlight.remove(slot)
+        if let embedding { continuation.yield(.speakerEmbedding(slot: slot, embedding: embedding)) }
     }
 
     func finish() async {

@@ -267,22 +267,13 @@ struct LiveView: View {
             HSplitView {
                 TranscriptListView(
                     turns: SessionDocument.mergeTurns(session.segments),
-                    names: session.speakerNames,
+                    names: session.liveNames,
                     emptyText: session.isRecording ? L("Listening…") : L("Press “Record meeting” to start."),
                     emptyDetail: session.isRecording ? nil : L("Everything runs on your Mac: transcription (Parakeet TDT v3, English and Spanish) and speaker separation (Nemotron 3, up to 8 voices). Text shows up a few seconds after each pause, and the speaker is assigned about a second later.")
                 )
                 .frame(minWidth: 320)
-                SpeakersPanel(
-                    rows: session.speakerSlots.map { slot in
-                        SpeakerRowModel(
-                            slot: slot, customName: session.speakerNames[slot] ?? "", contactName: nil, contact: nil,
-                            isLikelyMe: session.micEnabled && session.systemAudioEnabled && (session.speakerMicFraction[slot] ?? 0) > 0.6)
-                    },
-                    contacts: [],
-                    onRename: { slot, name in session.rename(speaker: slot, to: name) },
-                    onLink: nil
-                )
-                .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
+                LiveSpeakersPanel()
+                    .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
             }
             Divider()
             footer
@@ -339,6 +330,32 @@ struct LiveView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+}
+
+struct LiveSpeakersPanel: View {
+    @EnvironmentObject var session: RecordingSession
+    @EnvironmentObject var contacts: ContactStore
+
+    var body: some View {
+        SpeakersPanel(
+            rows: session.speakerSlots.map { slot in
+                let contact = contacts.contact(session.liveLinks[slot])
+                let suggestion = session.speakerSuggestions[slot].flatMap { m -> (name: String, score: Float, contactID: String)? in
+                    guard let c = contacts.contact(m.contactID) else { return nil }
+                    return (c.name, m.score, c.id)
+                }
+                return SpeakerRowModel(
+                    slot: slot, customName: session.speakerNames[slot] ?? "", contactName: contact?.name, contact: contact,
+                    isLikelyMe: session.micEnabled && session.systemAudioEnabled && (session.speakerMicFraction[slot] ?? 0) > 0.6,
+                    suggestion: suggestion)
+            },
+            contacts: contacts.contacts,
+            onRename: { slot, name in session.rename(speaker: slot, to: name) },
+            onLink: { slot, cid in session.linkLive(slot: slot, to: cid) },
+            onCreateContact: nil,
+            onConfirmSuggestion: { slot, cid in session.linkLive(slot: slot, to: cid) }
+        )
     }
 }
 
@@ -421,6 +438,7 @@ struct SaveSheet: View {
         .frame(width: 560)
         .onAppear {
             if let p = project, !store.visibleProjects.contains(p) { project = nil }
+            links = session.liveLinks
         }
     }
 
