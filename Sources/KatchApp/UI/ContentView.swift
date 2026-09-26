@@ -23,27 +23,12 @@ struct ContentView: View {
             SessionsSidebar(selection: $selection, searchText: $searchText, sidebarVisible: columns != .detailOnly)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
-            switch selection {
-            case .session(let id):
-                if let summary = store.sessions.first(where: { $0.id == id }) {
-                    SessionDetailView(summary: summary, selection: $selection, searchQuery: searchText)
-                        .id(summary.id)
-                } else {
-                    LiveView()
+            detailContent
+                .overlay(alignment: .topTrailing) {
+                    ThemeToggleButton()
+                        .buttonStyle(.borderless)
+                        .padding(10)
                 }
-            case .contact(let id):
-                if let contact = contacts.contact(id) {
-                    ContactDetailView(contact: contact, selection: $selection)
-                        .id(contact.id)
-                } else {
-                    LiveView()
-                }
-            default:
-                LiveView()
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) { ThemeToggleButton() }
         }
         .onAppear { installTabShortcut() }
         .onChange(of: session.status) { _, status in
@@ -72,6 +57,30 @@ struct ContentView: View {
             } onDiscard: {
                 session.discard()
                 selection = .live
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        Group {
+            switch selection {
+            case .session(let id):
+                if let summary = store.sessions.first(where: { $0.id == id }) {
+                    SessionDetailView(summary: summary, selection: $selection, searchQuery: searchText)
+                        .id(summary.id)
+                } else {
+                    LiveView()
+                }
+            case .contact(let id):
+                if let contact = contacts.contact(id) {
+                    ContactDetailView(contact: contact, selection: $selection)
+                        .id(contact.id)
+                } else {
+                    LiveView()
+                }
+            default:
+                LiveView()
             }
         }
     }
@@ -367,6 +376,7 @@ struct LiveView: View {
             LevelMeters()
         }
         .padding(16)
+        .padding(.trailing, 28)  // room for the floating theme button
     }
 
     private var footer: some View {

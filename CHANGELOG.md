@@ -2,6 +2,10 @@
 
 Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
 
+## 0.7.2 — 2026-09-26
+
+- El botón de tema sale de la toolbar y pasa a flotar arriba a la derecha del contenido: ya no aparece la flecha ">>" al mostrar el panel.
+
 ## 0.7.1 — 2026-09-26
 
 - Barra lateral: vuelven los botones de nuevo proyecto y ojo en la toolbar; al colapsar el panel queda solo el ícono para reabrirlo. La tecla Tab muestra u oculta el panel (salvo mientras se escribe en un campo).
