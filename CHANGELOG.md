@@ -1,60 +1,60 @@
 # Changelog
 
-Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
+One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
 ## 0.7.2 — 2026-09-26
 
-- El botón de tema sale de la toolbar y pasa a flotar arriba a la derecha del contenido: ya no aparece la flecha ">>" al mostrar el panel.
+- The theme button leaves the toolbar and floats at the top right of the content: no more ">>" overflow chevron while the sidebar animates.
 
 ## 0.7.1 — 2026-09-26
 
-- Barra lateral: vuelven los botones de nuevo proyecto y ojo en la toolbar; al colapsar el panel queda solo el ícono para reabrirlo. La tecla Tab muestra u oculta el panel (salvo mientras se escribe en un campo).
+- Sidebar: the new-project and eye buttons are back in the toolbar; collapsing the panel leaves only the icon to reopen it. Tab shows or hides the panel (except while typing in a field).
 
 ## 0.7.0 — 2026-09-26
 
-- Modo oscuro: botón sol/luna en el encabezado, opción Sistema/Claro/Oscuro en About y ⌥⌘D.
-- About rediseñado (ventana y pestaña en Ajustes): idioma, tema, versión, autor, donar, código fuente, carpetas de sesiones y logs con "Abrir", agradecimientos.
-- Barra lateral: el botón de nuevo proyecto va en la cabecera de Historial; desaparece el ojo (los proyectos ocultos se muestran desde el menú Ver, ⌥⌘H, o Ajustes).
+- Dark mode: sun/moon button in the header, System/Light/Dark in About, ⌥⌘D.
+- About redesigned (window and Settings tab): language, theme, version, author, donate, source code, sessions and log folders with "Open", acknowledgments.
+- Sidebar: new-project button moved to the History header; the eye button removed (hidden projects via the View menu, ⌥⌘H, or Settings).
 
 ## 0.6.0 — 2026-09-26
 
-- La app pasa a llamarse **KatchApp** (antes MeetAI). Bundle id `com.juannito.katchapp`, repo github.com/juannito/KatchApp. Al primer arranque se migran solos los ajustes, las claves y la carpeta `~/Documents/MeetAI` → `~/Documents/KatchApp`. macOS vuelve a pedir los permisos de micrófono, audio del sistema y Documentos.
+- The app is now **KatchApp** (formerly MeetAI). Bundle id `com.juannito.katchapp`, repo github.com/juannito/KatchApp. First launch migrates settings, keys and the `~/Documents/MeetAI` folder to `~/Documents/KatchApp`. macOS asks again for Microphone, System Audio Recording and Documents.
 
 ## 0.5.0 — 2026-09-26
 
-- Etiqueta de plataforma: cada reunión guarda la app con la que se hizo (Zoom, Teams, Meet en Chrome/Safari, FaceTime, WhatsApp…), visible en el historial y el encabezado.
-- Captura por app: por defecto se graba solo el audio de la app de reunión; opción "todo el audio del sistema" en Ajustes > Reuniones.
-- Detección de reuniones: cuando una app de reunión empieza a usar el micrófono, KatchApp pregunta si grabar. Opción "Abrir KatchApp al iniciar sesión".
-- Lista editable de apps de reunión (renombrar, marcar desconocidas, desmarcar conocidas).
+- Platform tag: each meeting records the app it was held on (Zoom, Teams, Meet in Chrome/Safari, FaceTime, WhatsApp…), shown in History and the header.
+- Per-app capture: by default only the meeting app's audio is recorded; "all system audio" option in Settings > Meetings.
+- Meeting detection: when a meeting app starts using the microphone, KatchApp asks whether to record. "Open KatchApp at login" option.
+- Editable meeting-app list (rename, mark unknown apps, unmark known ones).
 
 ## 0.4.1 — 2026-09-26
 
-- Arreglo: filas de la barra lateral que se superponían (alturas fijas para historial, proyectos y contactos).
+- Fix: overlapping sidebar rows (fixed heights for history, projects and contacts).
 
 ## 0.4.0 — 2026-09-26
 
-- Búsqueda dentro de la conversación: al abrir una reunión con un término buscado, el transcript resalta cada coincidencia, muestra "N de M coincidencias" con flechas para saltar entre ellas (⌘G / ⇧⌘G) y arranca en la más reciente.
+- In-conversation search: opening a meeting with a search term highlights every match, shows "N of M matches" with arrows to jump between them (⌘G / ⇧⌘G) and starts at the newest one.
 
 ## 0.3.1 — 2026-09-26
 
-- Búsqueda insensible a mayúsculas y acentos; también busca en el resumen generado.
+- Search is case- and accent-insensitive and also covers the generated summary.
 
 ## 0.3.0 — 2026-09-26
 
-- Barra lateral rediseñada: los proyectos son grupos desplegables dentro del historial (sesiones sin proyecto arriba). Clic derecho en un proyecto para ocultarlo, mostrarlo o abrirlo en Finder. Botón "+" para crear proyecto y botón ojo para ver los ocultos. Desaparece el menú de carpeta.
-- Búsqueda en la barra lateral: filtra reuniones por título, proyecto, nombres de hablantes y texto del transcript; también filtra contactos.
+- Sidebar redesign: projects are collapsible groups inside History (sessions without a project on top). Right-click a project to hide, unhide or show it in Finder. "+" button to create a project and an eye button to reveal hidden ones. The folder menu is gone.
+- Sidebar search: filters meetings by title, project, speaker names and transcript text; also filters contacts.
 
 ## 0.2.0 — 2026-09-26
 
-- Historial de sesiones en la barra lateral, diálogo de guardado con título, descartar a la Papelera.
-- Proyectos como carpetas, con filtro y proyectos ocultos (se resetea en cada arranque).
-- Contactos con foto, huella de voz (CAM++), sugerencias con score al guardar y **en vivo** durante la grabación, contacto "Este soy yo".
-- Crear contactos desde sesiones viejas: la huella se calcula bajo demanda desde el audio.
-- Resumen de la reunión con LLM: Ollama (con descarga de modelos desde Ajustes), OpenAI-compatible y Anthropic; automático al guardar o manual por sesión; instrucciones editables.
-- Ajustes: idioma (inglés por defecto, español), carpeta de sesiones, proyectos, resumen.
-- Ventana About con créditos, licencia MIT, bio y Buy Me a Coffee.
-- Arreglos: ventana recortada, arranque sin ventana por el permiso de Documentos, firma con certificado de desarrollador y entitlement de micrófono.
+- Session history in the sidebar, save sheet with title, discard to Trash.
+- Projects as folders, with filter and hidden projects (reset on every launch).
+- Contacts with photo, voice fingerprint (CAM++), scored suggestions on save and **live** while recording, "This is me" contact.
+- Create contacts from old sessions: the fingerprint is computed on demand from the audio.
+- Meeting summaries with an LLM: Ollama (with model downloads from Settings), OpenAI-compatible and Anthropic; automatic on save or manual per session; editable instructions.
+- Settings: language (English default, Spanish), sessions folder, projects, summary.
+- About window with credits, MIT license, bio and Buy Me a Coffee.
+- Fixes: clipped window, windowless launch caused by the Documents permission prompt, signing with a developer certificate and the microphone entitlement.
 
 ## 0.1.0 — 2026-09-26
 
-- Primera versión: grabación de micrófono + audio del sistema, transcripción en vivo (Parakeet TDT v3) y separación de hablantes (Nemotron 3 Diarization), todo local. Export a Markdown y JSON.
+- First version: microphone + system audio recording, live transcription (Parakeet TDT v3) and speaker separation (Nemotron 3 Diarization), all local. Markdown and JSON export.

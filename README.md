@@ -1,72 +1,87 @@
 # KatchApp
 
-Grabador de reuniones 100% local para macOS: apretás un botón, transcribe en vivo (español e inglés) y separa los hablantes mientras la reunión ocurre. Nada sale de tu Mac.
+*[Versión en español](README.es.md)*
 
-- **ASR:** NVIDIA Parakeet TDT 0.6B v3 (CoreML/ANE vía FluidAudio), 25 idiomas, timestamps por palabra.
-- **Diarización:** NVIDIA Nemotron 3 Diarization (streaming, hasta 8 hablantes, CoreML).
+A 100% local meeting recorder for macOS. Press one button and get a live transcript (English and Spanish) with speakers separated as the meeting happens. Nothing leaves your Mac.
+
+- **ASR:** NVIDIA Parakeet TDT 0.6B v3 (CoreML/ANE via FluidAudio), 25 languages, word-level timestamps.
+- **Diarization:** NVIDIA Nemotron 3 Diarization (streaming, up to 8 speakers, CoreML).
 - **VAD:** Silero v6 (CoreML).
-- **Captura:** micrófono (AVAudioEngine) + audio del sistema (Core Audio process tap, macOS 14.4+, sin drivers virtuales).
+- **Voice ID:** CAM++ speaker embeddings (CoreML) to recognise contacts across meetings.
+- **Capture:** microphone (AVAudioEngine) + system audio (Core Audio process tap, macOS 14.4+, no virtual drivers).
+- **Summaries (optional):** Ollama, any OpenAI-compatible server, or Anthropic.
 
-Requisitos: Apple Silicon, macOS 15+, Xcode 26 (para compilar). La primera vez descarga ~1 GB de modelos a `~/Library/Application Support/FluidAudio/Models`.
+Requirements: Apple Silicon, macOS 15+, Xcode 26 (to build). The first launch downloads ~1 GB of models into `~/Library/Application Support/FluidAudio/Models`.
 
-## Autor
+## Author
 
-**Juan (@juannito)** — Freelance product designer y vibe coder. Diseño productos digitales de punta a punta y los construyo con IA como copiloto. Si KatchApp te sirve, [invitame un café](https://buymeacoffee.com/juannito) ☕
+**Juan (@juannito)** — Freelance product designer & vibe coder. I design digital products end to end and build them with AI as my copilot. If KatchApp helps you, [buy me a coffee](https://buymeacoffee.com/juannito) ☕
 
-## Compilar y correr
+## Build and run
 
 ```bash
-scripts/build-app.sh          # genera dist/KatchApp.app (release)
+scripts/build-app.sh          # builds dist/KatchApp.app (release)
 open dist/KatchApp.app
 ```
 
-Build de desarrollo rápido:
+Quick development build:
 
 ```bash
 swift build && .build/debug/KatchApp
 ```
 
-## Uso
+`scripts/build-app.sh` signs with an "Apple Development" certificate when one is present (keeps the macOS privacy grants across rebuilds) and falls back to ad-hoc signing otherwise. `scripts/bump-version.sh X.Y.Z` bumps the version.
 
-1. Esperá a que el pie de la ventana diga "Modelos listos".
-2. Elegí fuentes: **Micrófono** (vos) y/o **Audio del sistema** (Zoom, Meet, Teams, navegador).
-3. **Grabar reunión** (⌘R). macOS pide permiso de micrófono y de "Grabación de audio del sistema" la primera vez.
-4. El texto aparece unos segundos después de cada pausa; el hablante se asigna ~3 s después.
-5. Renombrá hablantes en el panel derecho. El ícono 🎤 marca la voz que entra por tu micrófono.
-6. **Detener**. Aparece el diálogo "Guardar reunión": ponele un título y guardá, o descartá (la carpeta va a la Papelera).
-7. Las sesiones guardadas quedan en la barra lateral (**Historial**). Al abrir una podés releer el transcript, renombrar hablantes, cambiar el título, copiar el Markdown, abrir el audio o mostrarla en Finder. Clic derecho para mandarla a la Papelera.
-8. **Ajustes** (⌘,): idioma (inglés por defecto, español), carpeta de sesiones y proyectos ocultos. Por defecto `~/Documents/KatchApp/<proyecto>/<fecha>/` con `transcript.md`, `transcript.json` y `audio.wav`.
-9. **Proyectos.** Al guardar elegís un proyecto (una subcarpeta) o creás uno nuevo. El filtro de carpeta en la barra lateral muestra un proyecto, los sin proyecto o todos. Un proyecto se puede **ocultar** (menú del filtro o Ajustes): desaparece de la barra y del historial hasta que activás "Mostrar proyectos ocultos", que se resetea en cada arranque. Pensado para compartir pantalla sin exponer otros proyectos.
-10. **Resumen con LLM (opcional).** En Ajustes > Resumen elegís proveedor: **Ollama** (local; la app lista los modelos instalados y descarga el que elijas), **OpenAI-compatible** (OpenAI, LM Studio, OpenRouter, vLLM) o **Anthropic**. Las claves van al Llavero. Con "resumen automático" activado se genera al guardar; si no, cada sesión tiene un botón **Generar resumen** en la pestaña Resumen. Salida: resumen, decisiones, acciones con responsable y fecha, y seguimientos. Las instrucciones son editables; el formato es fijo. Queda en `summary.md` y `summary.json`.
-11. **Plataforma, captura por app y detección de reuniones.** KatchApp mira qué procesos tienen audio en Core Audio. Al grabar, etiqueta la sesión con la app de reunión activa (Zoom, Teams, Meet en el navegador, FaceTime, WhatsApp…) y, con el modo "solo la app de la reunión" (por defecto), captura únicamente el audio de esa app en lugar de todo el sistema; si no hay ninguna, graba todo. En Ajustes > Reuniones se puede activar la detección: cuando una app de reunión empieza a usar el micrófono, KatchApp pregunta si grabar. Para que sirva en cada reunión, "Abrir KatchApp al iniciar sesión". La lista de apps de reunión es editable: renombrar, marcar apps desconocidas o desmarcar conocidas.
-12. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). KatchApp guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
+## Usage
 
-## Self-test sin UI
+1. Wait until the footer says "Models ready".
+2. Pick your sources: **Microphone** (you) and/or **System audio** (Zoom, Meet, Teams, browser).
+3. **Record meeting** (⌘R). macOS asks for Microphone and "System Audio Recording" the first time.
+4. Text shows up a few seconds after each pause; the speaker is assigned about a second later. While recording, known voices are suggested in the Speakers panel ("Looks like X (85%)") with a Confirm button.
+5. Rename speakers in the right panel. The 🎤 icon marks the voice coming through your microphone.
+6. **Stop.** The "Save meeting" sheet appears: give it a title, pick a project, link speakers to contacts (or create them), then Save. Discard sends the folder to the Trash.
+7. Saved sessions live in the sidebar (**History**). Open one to re-read the transcript, rename or link speakers, change the title or project, copy the Markdown, open the audio or show it in Finder. Right-click to trash it.
+8. **Search** (sidebar field): filters meetings by title, project, speaker names, transcript and summary text, case- and accent-insensitive. Opening a matching meeting highlights every hit, shows "N of M matches" and lets you jump between them (⌘G / ⇧⌘G), starting from the newest.
+9. **Projects** are subfolders. Each project is a collapsible group in History; right-click it to hide it, unhide it or show it in Finder. Hidden projects vanish from the sidebar until you toggle "Show hidden projects" (eye button, ⌥⌘H), which resets on every launch — handy when sharing your screen. The folder button creates a project.
+10. **Contacts and voice recognition.** Each contact stores a local voice fingerprint (CAM++ embedding, 192 floats), a photo, an optional "This is me" flag and the list of conversations they took part in. Linking a speaker of an old session computes the fingerprint on demand from `audio.wav`. Data lives in `contacts.json` and `avatars/` inside the sessions folder.
+11. **Summaries (optional).** Settings > Summary: choose **Ollama** (local; the app lists installed models and downloads the one you pick), **OpenAI-compatible** (OpenAI, LM Studio, OpenRouter, vLLM) or **Anthropic**. API keys go to the Keychain. With "auto summary" on, minutes are generated on save; otherwise each session has a **Generate summary** button in its Summary tab. Output: summary, decisions, action items with owner and due date, follow-ups. Instructions are editable; the output format is fixed. Stored as `summary.md` and `summary.json`.
+12. **Meeting platform, per-app capture and detection.** KatchApp looks at which processes have audio in Core Audio. Recordings are tagged with the active meeting app (Zoom, Teams, Meet in a browser, FaceTime, WhatsApp…). With "only the meeting app" (default) it captures just that app's audio instead of everything; if none is running it captures everything. Settings > Meetings can enable detection: when a meeting app starts using the microphone, KatchApp asks whether to record. "Open KatchApp at login" keeps it ready. The list of meeting apps is editable: rename, mark unknown apps, unmark known ones.
+13. **Settings** (⌘,): language (English default, Spanish), theme (sun/moon button in the header, ⌥⌘D), sessions folder, projects, meetings, summary, About. Default sessions folder: `~/Documents/KatchApp/<project>/<date>/` with `transcript.md`, `transcript.json` and `audio.wav`.
+14. **Tab** shows or hides the sidebar (except while typing in a text field).
+
+## Headless self-test
 
 ```bash
-scripts/make-test-audio.sh /tmp/dialog.wav       # diálogo sintético con dos voces
-.build/debug/KatchApp --selftest /tmp/dialog.wav   # corre el pipeline completo y muestra el resultado
+scripts/make-test-audio.sh /tmp/dialog.wav        # synthetic two-voice dialog
+.build/debug/KatchApp --selftest /tmp/dialog.wav   # runs the full pipeline and prints the result
+.build/debug/KatchApp --audio-processes            # lists processes Core Audio knows about
+.build/debug/KatchApp --summarize <session folder> [ollama model]
 ```
 
-## Estructura
+## Layout
 
 ```
 Sources/KatchApp/
-  Audio/     captura (tap del sistema, micrófono, resampler, mezcla, WAV)
-  Engine/    modelos, motor (VAD + ASR + diarización + atribución), sesión, self-test
-  Model/     tipos del transcript y export a Markdown/JSON
+  Audio/     capture (system tap, microphone, resampler, mix bus, WAV, process list)
+  Engine/    models, engine (VAD + ASR + diarization + attribution), session, stores, summaries, self-test
+  Model/     transcript types, Markdown/JSON export, summary model
   UI/        SwiftUI
-scripts/     build-app.sh, make-test-audio.sh
-doc/         investigación de modelos y pipeline
+scripts/     build-app.sh, bump-version.sh, make-test-audio.sh
+doc/         model and pipeline research
 ```
 
-## Decisiones y límites conocidos
+## Design decisions and known limits
 
-- Pipeline en cascada: ASR sobre segmentos de voz (VAD) + diarización en streaming sobre todo el audio; cada palabra se asigna al hablante con más actividad en su intervalo. Ver `doc/research-realtime-stt-diarization.md`.
-- Máximo 8 hablantes (límite del modelo). Si hay más, se fusionan en los existentes.
-- Con parlantes (sin auriculares) el micrófono recaptura a los remotos; no hay cancelación de eco todavía. Con auriculares no hay problema.
-- Preset de diarización `low` (1 s de latencia, perfil de referencia de NVIDIA). Se puede cambiar con la variable de entorno `MEETAI_DIAR_PRESET` (`fast32`, `fast128`, `verylow`, `ultra`…).
-- El diarizador tarda ~0.5–1 s en "descubrir" a un hablante nuevo: la primera palabra de alguien que habla por primera vez puede quedar pegada al hablante anterior. Un re-pase offline al cerrar la sesión lo corregiría (pendiente).
-- Primer arranque: descarga ~700 MB y compila los modelos para el Neural Engine (1–2 min). Arranques siguientes: bastante más rápido gracias a la caché de CoreML del bundle.
-- Log de diagnóstico: `~/Library/Logs/KatchApp/app.log`.
-- El umbral de sugerencia de voz (`ContactStore.suggestThreshold`, 0.70) está calibrado con voces sintéticas; con voces reales puede convenir bajarlo. Con voces de TTS muy parecidas el diarizador puede fusionar hablantes.
+- Cascade pipeline: ASR over voiced segments (VAD) + streaming diarization over the whole audio; each word goes to the speaker with the most activity in its interval. See `doc/research-realtime-stt-diarization.md`.
+- At most 8 speakers (model limit). Extra voices are merged into existing ones.
+- Without headphones the microphone re-captures the remote side; there is no echo cancellation yet. Headphones avoid it.
+- Diarizer preset `low` (1 s latency, NVIDIA's reference streaming profile). Override with the `MEETAI_DIAR_PRESET` environment variable (`fast32`, `fast128`, `verylow`, `ultra`…).
+- The diarizer needs ~0.5–1 s to "discover" a new speaker, so someone's very first word can stick to the previous speaker. An offline re-pass at session end would fix it (pending).
+- First launch: downloads ~700 MB and compiles the models for the Neural Engine (1–2 min). Later launches take well under a second thanks to the CoreML cache.
+- Diagnostic log: `~/Library/Logs/KatchApp/app.log`.
+- The voice-suggestion threshold (`ContactStore.suggestThreshold`, 0.70) was calibrated with synthetic voices; real voices may warrant a lower value. Very similar TTS voices can be merged by the diarizer.
+- Per-app capture and meeting detection were verified against Core Audio's process list, not yet against a live call on every platform.
+
+## License
+
+MIT. See `LICENSE`. Model licences are listed in the About window.
