@@ -132,7 +132,7 @@ struct SessionsSidebar: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(contacts.contacts.filter { !isSearching || $0.name.lowercased().contains(searchText.lowercased()) }) { c in
+                ForEach(contacts.contacts.filter { !isSearching || SessionSummary.fold($0.name).contains(SessionSummary.fold(searchText)) }) { c in
                     HStack(spacing: 8) {
                         AvatarView(contact: c, size: 22)
                         Text(c.name).lineLimit(1)

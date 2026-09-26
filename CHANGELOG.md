@@ -2,6 +2,10 @@
 
 Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
 
+## 0.3.1 — 2026-09-26
+
+- Búsqueda insensible a mayúsculas y acentos; también busca en el resumen generado.
+
 ## 0.3.0 — 2026-09-26
 
 - Barra lateral rediseñada: los proyectos son grupos desplegables dentro del historial (sesiones sin proyecto arriba). Clic derecho en un proyecto para ocultarlo, mostrarlo o abrirlo en Finder. Botón "+" para crear proyecto y botón ojo para ver los ocultos. Desaparece el menú de carpeta.

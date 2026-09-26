@@ -15,10 +15,16 @@ struct SessionSummary: Identifiable, Hashable {
     /// Lowercased title + project + speaker names + transcript text, for the sidebar search.
     let searchText: String
 
+    /// Case- and accent-insensitive; every word of the query must appear somewhere.
     func matches(_ query: String) -> Bool {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let q = Self.fold(query)
         guard !q.isEmpty else { return true }
         return q.split(separator: " ").allSatisfy { searchText.contains($0) }
+    }
+
+    nonisolated static func fold(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -239,11 +245,14 @@ final class SessionStore: ObservableObject {
         let id = project.map { "\($0)/\(folder.lastPathComponent)" } ?? folder.lastPathComponent
         var text = [doc.displayTitle, project ?? ""] + Array(doc.speakerNames.values)
         text.append(contentsOf: doc.segments.map(\.text))
+        if let summary = try? String(contentsOf: folder.appendingPathComponent("summary.md"), encoding: .utf8) {
+            text.append(summary)
+        }
         return SessionSummary(
             id: id, folder: folder, title: doc.displayTitle, startedAt: doc.startedAt, duration: doc.duration,
             segmentCount: doc.segments.count, speakerCount: Set(doc.segments.compactMap(\.speaker)).count,
             project: project, contactIDs: Set(doc.speakerContacts.values),
-            searchText: text.joined(separator: " ").lowercased())
+            searchText: SessionSummary.fold(text.joined(separator: " ")))
     }
 
     nonisolated static func readDocument(at folder: URL) -> SessionDocument? {
