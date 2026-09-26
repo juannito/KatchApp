@@ -6,6 +6,7 @@ struct KatchAppMain: App {
     @StateObject private var sessionStore: SessionStore
     @StateObject private var contacts: ContactStore
     @StateObject private var language = AppLanguage()
+    @StateObject private var theme = AppTheme()
     @StateObject private var summarySettings: SummarySettings
     @StateObject private var summaryService: SummaryService
     @StateObject private var meetingApps: MeetingAppRegistry
@@ -43,6 +44,8 @@ struct KatchAppMain: App {
                 .environmentObject(summaryService)
                 .environmentObject(meetingApps)
                 .environmentObject(detector)
+                .environmentObject(theme)
+                .preferredColorScheme(theme.colorScheme)
                 .frame(minWidth: 760, minHeight: 520)
                 .task {
                     NSApplication.shared.activate(ignoringOtherApps: true)
@@ -68,12 +71,22 @@ struct KatchAppMain: App {
             CommandGroup(replacing: .appInfo) {
                 Button(L("About KatchApp")) { openWindow(id: "about") }
             }
+            CommandGroup(after: .sidebar) {
+                Toggle(L("Show hidden projects"), isOn: $sessionStore.showHidden)
+                    .keyboardShortcut("h", modifiers: [.command, .option])
+                Button(L("Toggle dark mode")) { theme.mode = theme.mode == .dark ? .light : .dark }
+                    .keyboardShortcut("d", modifiers: [.command, .option])
+            }
         }
 
         Window(L("About KatchApp"), id: "about") {
             AboutView()
                 .id(language.code)
                 .environmentObject(language)
+                .environmentObject(theme)
+                .environmentObject(sessionStore)
+                .preferredColorScheme(theme.colorScheme)
+                .frame(width: 640, height: 700)
         }
         .windowResizability(.contentSize)
         .restorationBehavior(.disabled)
@@ -85,6 +98,8 @@ struct KatchAppMain: App {
                 .environmentObject(language)
                 .environmentObject(summarySettings)
                 .environmentObject(meetingApps)
+                .environmentObject(theme)
+                .preferredColorScheme(theme.colorScheme)
         }
     }
 }

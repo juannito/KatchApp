@@ -1,44 +1,74 @@
 import AppKit
 import SwiftUI
 
+/// About page in the Handy style: one row per fact, then acknowledgments.
 struct AboutView: View {
     @EnvironmentObject var language: AppLanguage
+    @EnvironmentObject var theme: AppTheme
+    @EnvironmentObject var store: SessionStore
 
     var body: some View {
-        VStack(spacing: 14) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 96, height: 96)
-            Text(AppInfo.name).font(.title.weight(.semibold))
-            Text(L("Version %@", AppInfo.version)).foregroundStyle(.secondary)
-            Text(L("Created by %@", AppInfo.author))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(L("Local meeting recorder: press one button and get a live transcript with speaker separation. Everything runs on your Mac — no audio or text ever leaves it."))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 440)
-            HStack(spacing: 12) {
-                Text(L("Open source under the MIT license.")).foregroundStyle(.secondary)
-                Link(L("Source code"), destination: AppInfo.repositoryURL)
-                Link(L("Buy me a coffee ☕"), destination: AppInfo.coffeeURL)
-            }
-            Divider().padding(.vertical, 4)
-            VStack(alignment: .leading, spacing: 6) {
-                Text(L("Built with")).font(.headline)
-                ForEach(AppInfo.credits) { c in
-                    HStack(alignment: .firstTextBaseline) {
-                        Link(c.name, destination: c.url).frame(width: 230, alignment: .leading)
-                        Text(c.role).foregroundStyle(.secondary)
-                        Spacer()
-                        Text(c.license).font(.caption.monospaced()).foregroundStyle(.tertiary)
+        Form {
+            Section {
+                HStack(spacing: 14) {
+                    Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 56, height: 56)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(AppInfo.name).font(.title2.weight(.semibold))
+                        Text(L("Local meeting recorder: press one button and get a live transcript with speaker separation. Everything runs on your Mac — no audio or text ever leaves it."))
+                            .font(.callout).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .font(.callout)
+                }
+                .padding(.vertical, 4)
+            }
+            Section(L("About")) {
+                Picker(L("Application language"), selection: $language.code) {
+                    ForEach(AppLanguage.supported, id: \.code) { Text($0.name).tag($0.code) }
+                }
+                Picker(L("Application theme"), selection: $theme.mode) {
+                    ForEach(AppTheme.Mode.allCases) { Text($0.title).tag($0) }
+                }
+                LabeledContent(L("Version")) { Text("v\(AppInfo.version)").font(.body.monospaced()) }
+                LabeledContent(L("Created by")) { Text(AppInfo.author) }
+                LabeledContent(L("Support development")) {
+                    Link(destination: AppInfo.coffeeURL) { Label(L("Buy me a coffee"), systemImage: "cup.and.saucer") }
+                        .buttonStyle(.borderedProminent)
+                }
+                LabeledContent(L("Source code")) {
+                    Link(L("View on GitHub"), destination: AppInfo.repositoryURL).buttonStyle(.bordered)
+                    Text(L("MIT license")).font(.caption).foregroundStyle(.secondary)
+                }
+                directoryRow(L("Sessions folder"), url: store.rootURL)
+                directoryRow(L("Log folder"), url: AppLog.url.deletingLastPathComponent())
+            }
+            Section(L("Acknowledgments")) {
+                ForEach(AppInfo.credits) { c in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Link(c.name, destination: c.url).font(.body.weight(.medium))
+                            Spacer()
+                            Text(c.license).font(.caption.monospaced()).foregroundStyle(.tertiary)
+                        }
+                        Text(c.role).font(.callout).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 2)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(28)
-        .frame(width: 560)
+        .formStyle(.grouped)
+    }
+
+    private func directoryRow(_ title: String, url: URL) -> some View {
+        LabeledContent(title) {
+            HStack(spacing: 8) {
+                Text(url.path)
+                    .font(.callout.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                Button(L("Open")) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            }
+        }
     }
 }

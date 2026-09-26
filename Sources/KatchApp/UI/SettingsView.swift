@@ -9,8 +9,10 @@ struct SettingsView: View {
                 .tabItem { Label(L("Meetings"), systemImage: "video") }
             SummarySettingsView()
                 .tabItem { Label(L("Summary"), systemImage: "text.badge.checkmark") }
+            AboutView()
+                .tabItem { Label(L("About"), systemImage: "info.circle") }
         }
-        .frame(width: 620)
+        .frame(width: 640)
     }
 }
 

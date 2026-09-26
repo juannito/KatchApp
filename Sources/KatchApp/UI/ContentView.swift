@@ -40,6 +40,9 @@ struct ContentView: View {
                 LiveView()
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { ThemeToggleButton() }
+        }
         .onChange(of: session.status) { _, status in
             if status == .recording { selection = .live }
         }
@@ -110,7 +113,7 @@ struct SessionsSidebar: View {
                 }
                 .tag(SidebarSelection.live)
             }
-            Section(L("History")) {
+            Section {
                 if isSearching {
                     let hits = visibleSessions
                     if hits.isEmpty {
@@ -139,6 +142,16 @@ struct SessionsSidebar: View {
                     }
                 }
             }
+            header: {
+                HStack {
+                    Text(L("History"))
+                    Spacer()
+                    Button { showNewProject = true } label: { Image(systemName: "folder.badge.plus") }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help(L("New project…"))
+                }
+            }
             Section(L("Contacts")) {
                 if contacts.contacts.isEmpty {
                     Text(L("No contacts yet. Link a speaker to a contact when saving a meeting."))
@@ -162,17 +175,7 @@ struct SessionsSidebar: View {
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar, prompt: L("Search meetings"))
-        .toolbar {
-            ToolbarItem {
-                Button { showNewProject = true } label: { Image(systemName: "folder.badge.plus") }
-                    .help(L("New project…"))
-            }
-            ToolbarItem {
-                Toggle(isOn: $store.showHidden) { Image(systemName: store.showHidden ? "eye" : "eye.slash") }
-                    .toggleStyle(.button)
-                    .help(L("Show hidden projects"))
-            }
-        }
+
         .alert(L("New project"), isPresented: $showNewProject) {
             TextField(L("Project name"), text: $newProjectName)
             Button(L("Create")) {

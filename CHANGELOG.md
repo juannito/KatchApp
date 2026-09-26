@@ -2,6 +2,12 @@
 
 Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
 
+## 0.7.0 — 2026-09-26
+
+- Modo oscuro: botón sol/luna en el encabezado, opción Sistema/Claro/Oscuro en About y ⌥⌘D.
+- About rediseñado (ventana y pestaña en Ajustes): idioma, tema, versión, autor, donar, código fuente, carpetas de sesiones y logs con "Abrir", agradecimientos.
+- Barra lateral: el botón de nuevo proyecto va en la cabecera de Historial; desaparece el ojo (los proyectos ocultos se muestran desde el menú Ver, ⌥⌘H, o Ajustes).
+
 ## 0.6.0 — 2026-09-26
 
 - La app pasa a llamarse **KatchApp** (antes MeetAI). Bundle id `com.juannito.katchapp`, repo github.com/juannito/KatchApp. Al primer arranque se migran solos los ajustes, las claves y la carpeta `~/Documents/MeetAI` → `~/Documents/KatchApp`. macOS vuelve a pedir los permisos de micrófono, audio del sistema y Documentos.
