@@ -5,29 +5,29 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>es</string>
 	<key>CFBundleDisplayName</key>
-	<string>MeetAI</string>
+	<string>KatchApp</string>
 	<key>CFBundleExecutable</key>
-	<string>MeetAI</string>
+	<string>KatchApp</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.juannito.meetai</string>
+	<string>com.juannito.katchapp</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>MeetAI</string>
+	<string>KatchApp</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.5.0</string>
+	<string>0.6.0</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>MeetAI captura el audio de las apps de reuniones (Zoom, Meet, Teams) para transcribir a los demás participantes. Nada sale de tu Mac.</string>
+	<string>KatchApp captura el audio de las apps de reuniones (Zoom, Meet, Teams) para transcribir a los demás participantes. Nada sale de tu Mac.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MeetAI graba tu voz para transcribir la reunión localmente.</string>
+	<string>KatchApp graba tu voz para transcribir la reunión localmente.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

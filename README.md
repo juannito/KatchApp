@@ -1,4 +1,4 @@
-# MeetAI
+# KatchApp
 
 Grabador de reuniones 100% local para macOS: apretás un botón, transcribe en vivo (español e inglés) y separa los hablantes mientras la reunión ocurre. Nada sale de tu Mac.
 
@@ -11,19 +11,19 @@ Requisitos: Apple Silicon, macOS 15+, Xcode 26 (para compilar). La primera vez d
 
 ## Autor
 
-**Juan (@juannito)** — Freelance product designer y vibe coder. Diseño productos digitales de punta a punta y los construyo con IA como copiloto. Si MeetAI te sirve, [invitame un café](https://buymeacoffee.com/juannito) ☕
+**Juan (@juannito)** — Freelance product designer y vibe coder. Diseño productos digitales de punta a punta y los construyo con IA como copiloto. Si KatchApp te sirve, [invitame un café](https://buymeacoffee.com/juannito) ☕
 
 ## Compilar y correr
 
 ```bash
-scripts/build-app.sh          # genera dist/MeetAI.app (release)
-open dist/MeetAI.app
+scripts/build-app.sh          # genera dist/KatchApp.app (release)
+open dist/KatchApp.app
 ```
 
 Build de desarrollo rápido:
 
 ```bash
-swift build && .build/debug/MeetAI
+swift build && .build/debug/KatchApp
 ```
 
 ## Uso
@@ -35,23 +35,23 @@ swift build && .build/debug/MeetAI
 5. Renombrá hablantes en el panel derecho. El ícono 🎤 marca la voz que entra por tu micrófono.
 6. **Detener**. Aparece el diálogo "Guardar reunión": ponele un título y guardá, o descartá (la carpeta va a la Papelera).
 7. Las sesiones guardadas quedan en la barra lateral (**Historial**). Al abrir una podés releer el transcript, renombrar hablantes, cambiar el título, copiar el Markdown, abrir el audio o mostrarla en Finder. Clic derecho para mandarla a la Papelera.
-8. **Ajustes** (⌘,): idioma (inglés por defecto, español), carpeta de sesiones y proyectos ocultos. Por defecto `~/Documents/MeetAI/<proyecto>/<fecha>/` con `transcript.md`, `transcript.json` y `audio.wav`.
+8. **Ajustes** (⌘,): idioma (inglés por defecto, español), carpeta de sesiones y proyectos ocultos. Por defecto `~/Documents/KatchApp/<proyecto>/<fecha>/` con `transcript.md`, `transcript.json` y `audio.wav`.
 9. **Proyectos.** Al guardar elegís un proyecto (una subcarpeta) o creás uno nuevo. El filtro de carpeta en la barra lateral muestra un proyecto, los sin proyecto o todos. Un proyecto se puede **ocultar** (menú del filtro o Ajustes): desaparece de la barra y del historial hasta que activás "Mostrar proyectos ocultos", que se resetea en cada arranque. Pensado para compartir pantalla sin exponer otros proyectos.
 10. **Resumen con LLM (opcional).** En Ajustes > Resumen elegís proveedor: **Ollama** (local; la app lista los modelos instalados y descarga el que elijas), **OpenAI-compatible** (OpenAI, LM Studio, OpenRouter, vLLM) o **Anthropic**. Las claves van al Llavero. Con "resumen automático" activado se genera al guardar; si no, cada sesión tiene un botón **Generar resumen** en la pestaña Resumen. Salida: resumen, decisiones, acciones con responsable y fecha, y seguimientos. Las instrucciones son editables; el formato es fijo. Queda en `summary.md` y `summary.json`.
-11. **Plataforma, captura por app y detección de reuniones.** MeetAI mira qué procesos tienen audio en Core Audio. Al grabar, etiqueta la sesión con la app de reunión activa (Zoom, Teams, Meet en el navegador, FaceTime, WhatsApp…) y, con el modo "solo la app de la reunión" (por defecto), captura únicamente el audio de esa app en lugar de todo el sistema; si no hay ninguna, graba todo. En Ajustes > Reuniones se puede activar la detección: cuando una app de reunión empieza a usar el micrófono, MeetAI pregunta si grabar. Para que sirva en cada reunión, "Abrir MeetAI al iniciar sesión". La lista de apps de reunión es editable: renombrar, marcar apps desconocidas o desmarcar conocidas.
-12. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). MeetAI guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
+11. **Plataforma, captura por app y detección de reuniones.** KatchApp mira qué procesos tienen audio en Core Audio. Al grabar, etiqueta la sesión con la app de reunión activa (Zoom, Teams, Meet en el navegador, FaceTime, WhatsApp…) y, con el modo "solo la app de la reunión" (por defecto), captura únicamente el audio de esa app en lugar de todo el sistema; si no hay ninguna, graba todo. En Ajustes > Reuniones se puede activar la detección: cuando una app de reunión empieza a usar el micrófono, KatchApp pregunta si grabar. Para que sirva en cada reunión, "Abrir KatchApp al iniciar sesión". La lista de apps de reunión es editable: renombrar, marcar apps desconocidas o desmarcar conocidas.
+12. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). KatchApp guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
 
 ## Self-test sin UI
 
 ```bash
 scripts/make-test-audio.sh /tmp/dialog.wav       # diálogo sintético con dos voces
-.build/debug/MeetAI --selftest /tmp/dialog.wav   # corre el pipeline completo y muestra el resultado
+.build/debug/KatchApp --selftest /tmp/dialog.wav   # corre el pipeline completo y muestra el resultado
 ```
 
 ## Estructura
 
 ```
-Sources/MeetAI/
+Sources/KatchApp/
   Audio/     captura (tap del sistema, micrófono, resampler, mezcla, WAV)
   Engine/    modelos, motor (VAD + ASR + diarización + atribución), sesión, self-test
   Model/     tipos del transcript y export a Markdown/JSON
@@ -68,5 +68,5 @@ doc/         investigación de modelos y pipeline
 - Preset de diarización `low` (1 s de latencia, perfil de referencia de NVIDIA). Se puede cambiar con la variable de entorno `MEETAI_DIAR_PRESET` (`fast32`, `fast128`, `verylow`, `ultra`…).
 - El diarizador tarda ~0.5–1 s en "descubrir" a un hablante nuevo: la primera palabra de alguien que habla por primera vez puede quedar pegada al hablante anterior. Un re-pase offline al cerrar la sesión lo corregiría (pendiente).
 - Primer arranque: descarga ~700 MB y compila los modelos para el Neural Engine (1–2 min). Arranques siguientes: bastante más rápido gracias a la caché de CoreML del bundle.
-- Log de diagnóstico: `~/Library/Logs/MeetAI/app.log`.
+- Log de diagnóstico: `~/Library/Logs/KatchApp/app.log`.
 - El umbral de sugerencia de voz (`ContactStore.suggestThreshold`, 0.70) está calibrado con voces sintéticas; con voces reales puede convenir bajarlo. Con voces de TTS muy parecidas el diarizador puede fusionar hablantes.

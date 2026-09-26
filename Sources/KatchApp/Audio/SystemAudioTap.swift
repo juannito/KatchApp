@@ -13,7 +13,7 @@ final class SystemAudioTap {
     private var tapID: AudioObjectID = .unknown
     private var aggregateID: AudioObjectID = .unknown
     private var procID: AudioDeviceIOProcID?
-    private let queue = DispatchQueue(label: "meetai.systemtap", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "katchapp.systemtap", qos: .userInitiated)
     private var format: AVAudioFormat?
     private var resampler: StreamResampler?
     private let handler: Handler
@@ -34,7 +34,7 @@ final class SystemAudioTap {
             : CATapDescription(monoMixdownOfProcesses: processes)
         description.uuid = UUID()
         description.muteBehavior = .unmuted
-        description.name = "MeetAI system audio"
+        description.name = "KatchApp system audio"
 
         var newTapID: AudioObjectID = .unknown
         var err = AudioHardwareCreateProcessTap(description, &newTapID)
@@ -54,7 +54,7 @@ final class SystemAudioTap {
             resampler = try StreamResampler(inputFormat: fmt)
 
             let aggregateDescription: [String: Any] = [
-                kAudioAggregateDeviceNameKey: "MeetAI Tap",
+                kAudioAggregateDeviceNameKey: "KatchApp Tap",
                 kAudioAggregateDeviceUIDKey: UUID().uuidString,
                 kAudioAggregateDeviceMainSubDeviceKey: outputUID,
                 kAudioAggregateDeviceIsPrivateKey: true,

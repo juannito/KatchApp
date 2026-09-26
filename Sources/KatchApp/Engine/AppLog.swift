@@ -1,14 +1,14 @@
 import Foundation
 
-/// Minimal append-only log at ~/Library/Logs/MeetAI/app.log for post-mortem debugging.
+/// Minimal append-only log at ~/Library/Logs/KatchApp/app.log for post-mortem debugging.
 enum AppLog {
     static let url: URL = {
         let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Logs/MeetAI", isDirectory: true)
+            .appendingPathComponent("Logs/KatchApp", isDirectory: true)
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         return logs.appendingPathComponent("app.log")
     }()
-    private static let queue = DispatchQueue(label: "meetai.log", qos: .utility)
+    private static let queue = DispatchQueue(label: "katchapp.log", qos: .utility)
     private static let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"

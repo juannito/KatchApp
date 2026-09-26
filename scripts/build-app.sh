@@ -1,17 +1,17 @@
 #!/bin/bash
-# Builds MeetAI.app (release) into dist/ and signs it ad hoc.
+# Builds KatchApp.app (release) into dist/ and signs it ad hoc.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG="${1:-release}"
-swift build -c "$CONFIG" --product MeetAI
+swift build -c "$CONFIG" --product KatchApp
 
-BIN=".build/$CONFIG/MeetAI"
-APP="dist/MeetAI.app"
+BIN=".build/$CONFIG/KatchApp"
+APP="dist/KatchApp.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-cp "$BIN" "$APP/Contents/MacOS/MeetAI"
-cp Sources/MeetAI/Resources/Info.plist "$APP/Contents/Info.plist"
+cp "$BIN" "$APP/Contents/MacOS/KatchApp"
+cp Sources/KatchApp/Resources/Info.plist "$APP/Contents/Info.plist"
 # SwiftPM resource bundles (FluidAudio ships one) are looked up in Contents/Resources.
 for b in .build/"$CONFIG"/*.bundle; do
   [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/"
@@ -29,7 +29,7 @@ fi
 IDENTITY="${CODESIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"')}"
 if [ -n "$IDENTITY" ]; then
   echo "signing with: $IDENTITY"
-  codesign --force --deep --options runtime --timestamp=none --entitlements scripts/MeetAI.entitlements --sign "$IDENTITY" "$APP"
+  codesign --force --deep --options runtime --timestamp=none --entitlements scripts/KatchApp.entitlements --sign "$IDENTITY" "$APP"
 else
   codesign --force --deep --sign - "$APP"
 fi

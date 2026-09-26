@@ -1,7 +1,7 @@
 import FluidAudio
 import Foundation
 
-/// `MeetAI --selftest file.wav` — runs the live pipeline over a file as if it were streamed
+/// `KatchApp --selftest file.wav` — runs the live pipeline over a file as if it were streamed
 /// and prints the attributed transcript. Used to validate models and timing offline.
 enum SelfTest {
     /// Runs the Ollama summarizer over a saved session and prints the minutes.

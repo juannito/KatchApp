@@ -22,6 +22,6 @@ SOFTWARE.
 
 ---
 
-Portions of Sources/MeetAI/Audio/CoreAudioUtils.swift and SystemAudioTap.swift
+Portions of Sources/KatchApp/Audio/CoreAudioUtils.swift and SystemAudioTap.swift
 are adapted from AudioCap (https://github.com/insidegui/AudioCap),
 Copyright (c) 2024 Guilherme Rambo, MIT License.

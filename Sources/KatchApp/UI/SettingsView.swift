@@ -253,13 +253,13 @@ struct MeetingsSettingsView: View {
                     ForEach(CaptureMode.allCases) { m in Text(m.title).tag(m) }
                 }
                 .pickerStyle(.radioGroup)
-                Text(L("With “only the meeting app”, MeetAI records just the audio of the meeting app it finds when you press Record (Zoom, Teams, your browser…). If none is running it records everything."))
+                Text(L("With “only the meeting app”, KatchApp records just the audio of the meeting app it finds when you press Record (Zoom, Teams, your browser…). If none is running it records everything."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section(L("Meeting detection")) {
                 Toggle(L("Ask to record when a meeting app starts using the microphone"), isOn: $registry.autoDetect)
-                Toggle(L("Open MeetAI at login"), isOn: Binding(get: { launchAtLogin }, set: { registry.launchAtLogin = $0; launchAtLogin = registry.launchAtLogin }))
-                Text(L("Detection only works while MeetAI is open. Opening it at login keeps it ready for every meeting."))
+                Toggle(L("Open KatchApp at login"), isOn: Binding(get: { launchAtLogin }, set: { registry.launchAtLogin = $0; launchAtLogin = registry.launchAtLogin }))
+                Text(L("Detection only works while KatchApp is open. Opening it at login keeps it ready for every meeting."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section(L("Meeting apps")) {

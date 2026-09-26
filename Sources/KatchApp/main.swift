@@ -16,7 +16,7 @@ if arguments.count >= 3, arguments[1] == "--selftest" {
     }
     exit(0)
 } else if arguments.count >= 3, arguments[1] == "--summarize" {
-    // MeetAI --summarize <session folder> [ollama model]
+    // KatchApp --summarize <session folder> [ollama model]
     let folder = URL(fileURLWithPath: arguments[2], isDirectory: true)
     let model = arguments.count >= 4 ? arguments[3] : "llama3.2"
     Task {
@@ -25,6 +25,7 @@ if arguments.count >= 3, arguments[1] == "--selftest" {
     }
     dispatchMain()
 } else {
+    Migration.runIfNeeded()
     AppLog.write("launch \(Bundle.main.bundleIdentifier ?? "cli") \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] ?? "")")
-    MeetAIApp.main()
+    KatchAppMain.main()
 }

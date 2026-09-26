@@ -5,7 +5,7 @@ import Foundation
 final class WavWriter {
     private let file: AVAudioFile
     private let format: AVAudioFormat
-    private let queue = DispatchQueue(label: "meetai.wavwriter", qos: .utility)
+    private let queue = DispatchQueue(label: "katchapp.wavwriter", qos: .utility)
 
     init(url: URL) throws {
         let settings: [String: Any] = [

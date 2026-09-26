@@ -2,11 +2,15 @@
 
 Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
 
+## 0.6.0 — 2026-09-26
+
+- La app pasa a llamarse **KatchApp** (antes MeetAI). Bundle id `com.juannito.katchapp`, repo github.com/juannito/KatchApp. Al primer arranque se migran solos los ajustes, las claves y la carpeta `~/Documents/MeetAI` → `~/Documents/KatchApp`. macOS vuelve a pedir los permisos de micrófono, audio del sistema y Documentos.
+
 ## 0.5.0 — 2026-09-26
 
 - Etiqueta de plataforma: cada reunión guarda la app con la que se hizo (Zoom, Teams, Meet en Chrome/Safari, FaceTime, WhatsApp…), visible en el historial y el encabezado.
 - Captura por app: por defecto se graba solo el audio de la app de reunión; opción "todo el audio del sistema" en Ajustes > Reuniones.
-- Detección de reuniones: cuando una app de reunión empieza a usar el micrófono, MeetAI pregunta si grabar. Opción "Abrir MeetAI al iniciar sesión".
+- Detección de reuniones: cuando una app de reunión empieza a usar el micrófono, KatchApp pregunta si grabar. Opción "Abrir KatchApp al iniciar sesión".
 - Lista editable de apps de reunión (renombrar, marcar desconocidas, desmarcar conocidas).
 
 ## 0.4.1 — 2026-09-26

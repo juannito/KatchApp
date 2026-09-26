@@ -114,7 +114,7 @@ enum L10n {
             "Open in Finder": "Abrir en Finder",
             "Reset": "Restablecer",
             "Use this folder": "Usar esta carpeta",
-            "Choose where MeetAI saves its sessions": "Elegí dónde guardar las sesiones de MeetAI",
+            "Choose where KatchApp saves its sessions": "Elegí dónde guardar las sesiones de KatchApp",
             "Each meeting is saved in its own subfolder with transcript.md, transcript.json and audio.wav. Changing the folder does not move existing sessions.":
                 "Cada reunión se guarda en una subcarpeta con transcript.md, transcript.json y audio.wav. Cambiar la carpeta no mueve las sesiones existentes.",
             "Diagnostics": "Diagnóstico",
@@ -136,7 +136,7 @@ enum L10n {
                 "No se pudo crear el tap de audio del sistema (error %d). Revisá Ajustes > Privacidad y seguridad > Grabación de audio del sistema.",
             "No microphone available": "No hay micrófono disponible",
             // About
-            "About MeetAI": "Acerca de MeetAI",
+            "About KatchApp": "Acerca de KatchApp",
             "Version %@": "Versión %@",
             "Created by %@": "Creado por %@",
             "Local meeting recorder: press one button and get a live transcript with speaker separation. Everything runs on your Mac — no audio or text ever leaves it.":
@@ -183,7 +183,7 @@ enum L10n {
             "Analyzing voices…": "Analizando voces…",
             "Downloading voice ID (CAM++)…": "Descargando identificación de voz (CAM++)…",
             "Voice recognition is unavailable (model not loaded).": "El reconocimiento de voz no está disponible (modelo no cargado).",
-            "Link speakers to contacts so MeetAI recognises them next time.": "Vinculá hablantes a contactos para que MeetAI los reconozca la próxima vez.",
+            "Link speakers to contacts so KatchApp recognises them next time.": "Vinculá hablantes a contactos para que KatchApp los reconozca la próxima vez.",
             // Summary
             "Summary": "Resumen",
             "Decisions": "Decisiones",
@@ -224,13 +224,13 @@ enum L10n {
             "System audio": "Audio del sistema",
             "Only the meeting app (recommended)": "Solo la app de la reunión (recomendado)",
             "All system audio (music, notifications, everything)": "Todo el audio del sistema (música, notificaciones, todo)",
-            "With “only the meeting app”, MeetAI records just the audio of the meeting app it finds when you press Record (Zoom, Teams, your browser…). If none is running it records everything.":
-                "Con “solo la app de la reunión”, MeetAI graba únicamente el audio de la app de reunión que encuentra al apretar Grabar (Zoom, Teams, tu navegador…). Si no hay ninguna abierta, graba todo.",
+            "With “only the meeting app”, KatchApp records just the audio of the meeting app it finds when you press Record (Zoom, Teams, your browser…). If none is running it records everything.":
+                "Con “solo la app de la reunión”, KatchApp graba únicamente el audio de la app de reunión que encuentra al apretar Grabar (Zoom, Teams, tu navegador…). Si no hay ninguna abierta, graba todo.",
             "Meeting detection": "Detección de reuniones",
             "Ask to record when a meeting app starts using the microphone": "Preguntar si grabar cuando una app de reunión empieza a usar el micrófono",
-            "Open MeetAI at login": "Abrir MeetAI al iniciar sesión",
-            "Detection only works while MeetAI is open. Opening it at login keeps it ready for every meeting.":
-                "La detección solo funciona con MeetAI abierta. Abrirla al iniciar sesión la deja lista para cada reunión.",
+            "Open KatchApp at login": "Abrir KatchApp al iniciar sesión",
+            "Detection only works while KatchApp is open. Opening it at login keeps it ready for every meeting.":
+                "La detección solo funciona con KatchApp abierta. Abrirla al iniciar sesión la deja lista para cada reunión.",
             "Meeting apps": "Apps de reunión",
             "Apps in this list are tagged as the meeting platform, captured on their own and watched for calls. Rename any app, or mark an app you use for meetings.":
                 "Las apps de esta lista se usan como plataforma de la reunión, se capturan solas y se vigilan para detectar llamadas. Renombrá cualquiera, o marcá una app que uses para reuniones.",

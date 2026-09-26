@@ -73,11 +73,11 @@ final class SummarySettings: ObservableObject {
     }
 }
 
-/// Minimal Keychain wrapper for API keys (generic passwords under service "MeetAI").
+/// Minimal Keychain wrapper for API keys (generic passwords under service "KatchApp").
 enum Keychain {
-    static let service = "MeetAI"
+    static let service = "KatchApp"
 
-    static func get(account: String) -> String? {
+    static func get(account: String, service: String = Keychain.service) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

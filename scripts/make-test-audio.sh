@@ -1,7 +1,7 @@
 #!/bin/bash
 # Synthesizes a two-voice Spanish/English dialog with macOS TTS for the self-test.
 set -euo pipefail
-OUT="${1:-/tmp/meetai-test.wav}"
+OUT="${1:-/tmp/katchapp-test.wav}"
 TMP=$(mktemp -d)
 V1="${V1:-Mónica}"      # es_ES
 V2="${V2:-Paulina}"     # es_MX

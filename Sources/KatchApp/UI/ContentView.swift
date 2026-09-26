@@ -444,7 +444,7 @@ struct SaveSheet: View {
                 Divider()
                 Text(L("Speakers")).font(.headline)
                 Text(session.voiceRecognitionAvailable
-                    ? L("Link speakers to contacts so MeetAI recognises them next time.")
+                    ? L("Link speakers to contacts so KatchApp recognises them next time.")
                     : L("Voice recognition is unavailable (model not loaded)."))
                     .font(.caption).foregroundStyle(.secondary)
                 if contacts.me == nil {

@@ -2,18 +2,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "MeetAI",
+    name: "KatchApp",
     platforms: [.macOS(.v15)],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.17.4", traits: []),
     ],
     targets: [
         .executableTarget(
-            name: "MeetAI",
+            name: "KatchApp",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
             ],
-            path: "Sources/MeetAI",
+            path: "Sources/KatchApp",
             exclude: ["Resources/Info.plist"],
             swiftSettings: [
                 .swiftLanguageMode(.v5),

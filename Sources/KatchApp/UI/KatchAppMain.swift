@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MeetAIApp: App {
+struct KatchAppMain: App {
     @StateObject private var modelStore = ModelStore()
     @StateObject private var session = RecordingSession()
     @StateObject private var sessionStore: SessionStore
@@ -31,7 +31,7 @@ struct MeetAIApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("MeetAI") {
+        WindowGroup("KatchApp") {
             ContentView()
                 .id(language.code)  // rebuild the UI when the language changes
                 .environmentObject(modelStore)
@@ -66,11 +66,11 @@ struct MeetAIApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(replacing: .appInfo) {
-                Button(L("About MeetAI")) { openWindow(id: "about") }
+                Button(L("About KatchApp")) { openWindow(id: "about") }
             }
         }
 
-        Window(L("About MeetAI"), id: "about") {
+        Window(L("About KatchApp"), id: "about") {
             AboutView()
                 .id(language.code)
                 .environmentObject(language)

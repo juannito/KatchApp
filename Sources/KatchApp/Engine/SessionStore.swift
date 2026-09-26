@@ -58,7 +58,7 @@ final class SessionStore: ObservableObject {
 
     static func defaultRoot() -> URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MeetAI", isDirectory: true)
+            .appendingPathComponent("KatchApp", isDirectory: true)
     }
 
     private static func storedRoot() -> URL {
@@ -87,7 +87,7 @@ final class SessionStore: ObservableObject {
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = L("Use this folder")
-        panel.message = L("Choose where MeetAI saves its sessions")
+        panel.message = L("Choose where KatchApp saves its sessions")
         panel.directoryURL = rootURL
         if panel.runModal() == .OK, let url = panel.url {
             setRoot(url)
