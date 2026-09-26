@@ -238,6 +238,7 @@ enum L10n {
             "Log folder": "Carpeta de logs",
             "Open": "Abrir",
             "Acknowledgments": "Agradecimientos",
+            "It helps me keep making things like this.": "Me ayuda a seguir creando cosas como esta.",
             "Meetings": "Reuniones",
             "Capture": "Captura",
             "System audio": "Audio del sistema",

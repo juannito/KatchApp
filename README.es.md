@@ -13,19 +13,33 @@ Requisitos: Apple Silicon, macOS 15+, Xcode 26 (para compilar). La primera vez d
 
 ## Autor
 
-**Juan (@juannito)** — Freelance product designer y vibe coder. Diseño productos digitales de punta a punta y los construyo con IA como copiloto. Si KatchApp te sirve, [invitame un café](https://buymeacoffee.com/juannito) ☕
+**Juan ([@juannito](https://x.com/juannito))** — Freelance product designer y vibe coder. Diseño productos digitales de punta a punta y los construyo con IA como copiloto; obviamente no soy un desarrollador nativo de Swift 🤷🏻‍♂️. Si KatchApp te sirve, [invitame un café](https://buymeacoffee.com/juannito) ☕: me ayuda a seguir creando cosas como esta.
 
-## Compilar y correr
+## Instalación
+
+Todavía no hay descarga empaquetada (un build notarizado requiere una cuenta paga de Apple Developer). Compilarlo lleva unos minutos:
+
+1. Requisitos: Mac con Apple Silicon, macOS 15 o superior y [Xcode 26](https://apps.apple.com/app/xcode/id497799835) instalado una vez (trae el toolchain de Swift y los frameworks de CoreML).
+2. Clonar y compilar:
 
 ```bash
-scripts/build-app.sh          # genera dist/KatchApp.app (release)
+git clone https://github.com/juannito/KatchApp.git
+cd KatchApp
+scripts/build-app.sh          # genera dist/KatchApp.app (release), ~2 min la primera vez
 open dist/KatchApp.app
 ```
 
-Build de desarrollo rápido:
+3. Opcional: mover `dist/KatchApp.app` a `/Applications`.
+4. En el primer arranque la app descarga ~1 GB de modelos y los compila para el Neural Engine (1–2 min). Los siguientes arranques tardan menos de un segundo.
+5. macOS pide Micrófono, Grabación de audio del sistema y acceso a Documentos la primera vez que grabás. Aceptá los tres.
+
+El script firma con un certificado "Apple Development" si tenés uno (mantiene los permisos entre recompilaciones) y si no usa firma ad hoc, que para uso personal funciona bien.
+
+### Desarrollo
 
 ```bash
-swift build && .build/debug/KatchApp
+swift build && .build/debug/KatchApp      # build de desarrollo rápido
+scripts/bump-version.sh X.Y.Z             # bump de versión
 ```
 
 ## Uso

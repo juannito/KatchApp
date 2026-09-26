@@ -15,22 +15,34 @@ Requirements: Apple Silicon, macOS 15+, Xcode 26 (to build). The first launch do
 
 ## Author
 
-**Juan (@juannito)** — Freelance product designer & vibe coder. I design digital products end to end and build them with AI as my copilot. If KatchApp helps you, [buy me a coffee](https://buymeacoffee.com/juannito) ☕
+**Juan ([@juannito](https://x.com/juannito))** — Freelance product designer & vibe coder. I design digital products end to end and build them with AI as my copilot; I'm obviously not a native Swift developer 🤷🏻‍♂️. If KatchApp is useful to you, [buy me a coffee](https://buymeacoffee.com/juannito) ☕ — it helps me keep making things like this.
 
-## Build and run
+## Install
+
+There is no packaged download yet (a notarized build needs a paid Apple Developer account). Building it yourself takes a few minutes:
+
+1. Requirements: a Mac with Apple Silicon, macOS 15 or newer, and [Xcode 26](https://apps.apple.com/app/xcode/id497799835) installed once (it provides the Swift toolchain and the CoreML frameworks).
+2. Clone and build:
 
 ```bash
-scripts/build-app.sh          # builds dist/KatchApp.app (release)
+git clone https://github.com/juannito/KatchApp.git
+cd KatchApp
+scripts/build-app.sh          # builds dist/KatchApp.app (release), ~2 min the first time
 open dist/KatchApp.app
 ```
 
-Quick development build:
+3. Optionally move `dist/KatchApp.app` to `/Applications`.
+4. On first launch the app downloads ~1 GB of models and compiles them for the Neural Engine (1–2 min). Later launches take under a second.
+5. macOS will ask for Microphone, System Audio Recording and access to your Documents folder the first time you record. Grant all three.
+
+The build script signs the app with an "Apple Development" certificate if you have one (keeps the privacy grants across rebuilds) and falls back to ad-hoc signing otherwise, which works fine for personal use.
+
+### Development
 
 ```bash
-swift build && .build/debug/KatchApp
+swift build && .build/debug/KatchApp      # quick debug build
+scripts/bump-version.sh X.Y.Z             # bump the version
 ```
-
-`scripts/build-app.sh` signs with an "Apple Development" certificate when one is present (keeps the macOS privacy grants across rebuilds) and falls back to ad-hoc signing otherwise. `scripts/bump-version.sh X.Y.Z` bumps the version.
 
 ## Usage
 

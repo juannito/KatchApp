@@ -29,10 +29,22 @@ struct AboutView: View {
                     ForEach(AppTheme.Mode.allCases) { Text($0.title).tag($0) }
                 }
                 LabeledContent(L("Version")) { Text("v\(AppInfo.version)").font(.body.monospaced()) }
-                LabeledContent(L("Created by")) { Text(AppInfo.author) }
+                LabeledContent(L("Created by")) {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Link(AppInfo.author, destination: AppInfo.authorURL)
+                        Text(language.code == "es" ? AppInfo.bioES : AppInfo.bioEN)
+                            .font(.caption).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 380, alignment: .trailing)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
                 LabeledContent(L("Support development")) {
-                    Link(destination: AppInfo.coffeeURL) { Label(L("Buy me a coffee"), systemImage: "cup.and.saucer") }
-                        .buttonStyle(.borderedProminent)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Link(destination: AppInfo.coffeeURL) { Label(L("Buy me a coffee"), systemImage: "cup.and.saucer") }
+                            .buttonStyle(.borderedProminent)
+                        Text(L("It helps me keep making things like this.")).font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 LabeledContent(L("Source code")) {
                     Link(L("View on GitHub"), destination: AppInfo.repositoryURL).buttonStyle(.bordered)

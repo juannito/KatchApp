@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.7.3 — 2026-09-26
+
+- About: author links to x.com/juannito, bio and "buy me a coffee" note. README: install guide.
+
 ## 0.7.2 — 2026-09-26
 
 - The theme button leaves the toolbar and floats at the top right of the content: no more ">>" overflow chevron while the sidebar animates.
