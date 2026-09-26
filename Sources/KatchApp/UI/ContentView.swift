@@ -333,7 +333,7 @@ struct LiveView: View {
                     turns: SessionDocument.mergeTurns(session.segments),
                     names: session.liveNames,
                     emptyText: session.isRecording ? L("Listening…") : L("Press “Record meeting” to start."),
-                    emptyDetail: session.isRecording ? nil : L("Everything runs on your Mac: transcription (Parakeet TDT v3, English and Spanish) and speaker separation (Nemotron 3, up to 8 voices). Text shows up a few seconds after each pause, and the speaker is assigned about a second later.")
+                    emptyDetail: nil
                 )
                 .frame(minWidth: 320)
                 LiveSpeakersPanel()

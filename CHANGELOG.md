@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.9.1 — 2026-09-26
+
+- Removed the explanatory paragraph under "Press Record meeting to start".
+
 ## 0.9.0 — 2026-09-26
 
 - Offline speaker refinement on Stop: a second diarization pass (Nemotron 3 offline preset) over the whole recording re-attributes every word while keeping live labels and names. Fixes first words sticking to the previous speaker. Toggle in Settings > Meetings; the model (~200 MB) downloads on first use.
