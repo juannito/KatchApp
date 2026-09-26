@@ -1,0 +1,9 @@
+# Dependabot: opens a pull request when a Swift package dependency (FluidAudio) has a new version.
+# Security alerts are a separate feature, enabled in Settings > Security and quality.
+version: 2
+updates:
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
