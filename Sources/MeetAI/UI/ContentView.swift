@@ -70,8 +70,8 @@ struct SessionsSidebar: View {
     @State private var pendingDelete: SessionSummary?
     @State private var showNewProject = false
     @State private var newProjectName = ""
-    /// nil = all projects, .some(nil) = sessions without project, .some(name) = one project
-    @State private var projectFilter: String?? = nil
+    @State private var searchText = ""
+    @State private var collapsed: Set<String> = []
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -80,16 +80,10 @@ struct SessionsSidebar: View {
         return f
     }()
 
-    private var filteredSessions: [SessionSummary] {
-        store.sessions(project: projectFilter)
-    }
-
-    private var filterLabel: String {
-        switch projectFilter {
-        case .none: return L("All sessions")
-        case .some(.none): return L("No project")
-        case .some(.some(let p)): return p
-        }
+    private var isSearching: Bool { !searchText.trimmingCharacters(in: .whitespaces).isEmpty }
+    private var visibleSessions: [SessionSummary] { store.sessions(project: nil).filter { $0.matches(searchText) } }
+    private var projectsToShow: [String] {
+        store.projects.filter { store.showHidden || !store.isHidden($0) }
     }
 
     var body: some View {
@@ -104,33 +98,31 @@ struct SessionsSidebar: View {
                 .tag(SidebarSelection.live)
             }
             Section(L("History")) {
-                if filteredSessions.isEmpty {
-                    Text(L("No saved sessions yet."))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(filteredSessions) { s in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(s.title).lineLimit(1)
-                            if store.isHidden(s.project) {
-                                Image(systemName: "eye.slash").font(.caption).foregroundStyle(.tertiary)
-                            }
-                        }
-                        Text(subtitle(for: s))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                if isSearching {
+                    let hits = visibleSessions
+                    if hits.isEmpty {
+                        Text(L("No results.")).font(.callout).foregroundStyle(.secondary)
                     }
-                    .tag(SidebarSelection.session(s.id))
-                    .contextMenu {
-                        Menu(L("Move to project")) {
-                            Button(L("No project")) { move(s, to: nil) }
-                            ForEach(store.visibleProjects, id: \.self) { p in
-                                Button(p) { move(s, to: p) }
+                    ForEach(hits) { s in sessionRow(s, showProject: true) }
+                } else {
+                    let loose = visibleSessions.filter { $0.project == nil }
+                    if loose.isEmpty, projectsToShow.isEmpty {
+                        Text(L("No saved sessions yet.")).font(.callout).foregroundStyle(.secondary)
+                    }
+                    ForEach(loose) { s in sessionRow(s, showProject: false) }
+                    ForEach(projectsToShow, id: \.self) { p in
+                        DisclosureGroup(isExpanded: Binding(
+                            get: { !collapsed.contains(p) },
+                            set: { if $0 { collapsed.remove(p) } else { collapsed.insert(p) } })
+                        ) {
+                            let inside = visibleSessions.filter { $0.project == p }
+                            if inside.isEmpty {
+                                Text(L("Empty")).font(.caption).foregroundStyle(.tertiary)
                             }
+                            ForEach(inside) { s in sessionRow(s, showProject: false) }
+                        } label: {
+                            projectLabel(p)
                         }
-                        Button(L("Show in Finder")) { store.reveal(s.folder) }
-                        Button(L("Move to Trash"), role: .destructive) { pendingDelete = s }
                     }
                 }
             }
@@ -140,7 +132,7 @@ struct SessionsSidebar: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(contacts.contacts) { c in
+                ForEach(contacts.contacts.filter { !isSearching || $0.name.lowercased().contains(searchText.lowercased()) }) { c in
                     HStack(spacing: 8) {
                         AvatarView(contact: c, size: 22)
                         Text(c.name).lineLimit(1)
@@ -155,50 +147,25 @@ struct SessionsSidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .searchable(text: $searchText, placement: .sidebar, prompt: L("Search meetings"))
         .toolbar {
             ToolbarItem {
-                Menu {
-                    Picker(L("Projects"), selection: $projectFilter) {
-                        Text(L("All sessions")).tag(String??.none)
-                        Text(L("No project")).tag(String??.some(.none))
-                        ForEach(store.visibleProjects, id: \.self) { p in
-                            Label(p, systemImage: store.isHidden(p) ? "eye.slash" : "folder").tag(String??.some(.some(p)))
-                        }
-                    }
-                    .pickerStyle(.inline)
-                    Divider()
-                    Button(L("New project…")) { showNewProject = true }
-                    Toggle(L("Show hidden projects"), isOn: $store.showHidden)
-                    if !store.projects.isEmpty {
-                        Divider()
-                        ForEach(store.projects, id: \.self) { p in
-                            if store.isHidden(p) {
-                                Button(L("Unhide project") + ": \(p)") { store.setHidden(p, false) }
-                            } else {
-                                Button(L("Hide project") + ": \(p)") { store.setHidden(p, true) }
-                            }
-                        }
-                    }
-                } label: {
-                    Label(filterLabel, systemImage: "folder")
-                }
-                .help(L("Projects"))
+                Button { showNewProject = true } label: { Image(systemName: "folder.badge.plus") }
+                    .help(L("New project…"))
             }
             ToolbarItem {
-                Button { store.reload(); contacts.reload() } label: { Image(systemName: "arrow.clockwise") }
-                    .help(L("Reload history"))
+                Toggle(isOn: $store.showHidden) { Image(systemName: store.showHidden ? "eye" : "eye.slash") }
+                    .toggleStyle(.button)
+                    .help(L("Show hidden projects"))
             }
         }
         .alert(L("New project"), isPresented: $showNewProject) {
             TextField(L("Project name"), text: $newProjectName)
             Button(L("Create")) {
-                if let created = store.createProject(newProjectName) { projectFilter = .some(.some(created)) }
+                _ = store.createProject(newProjectName)
                 newProjectName = ""
             }
             Button(L("Cancel"), role: .cancel) { newProjectName = "" }
-        }
-        .onChange(of: store.showHidden) { _, show in
-            if !show, case .some(.some(let p)) = projectFilter, store.isHidden(p) { projectFilter = nil }
         }
         .alert(L("Move this session to the Trash?"), isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })) {
             Button(L("Move to Trash"), role: .destructive) {
@@ -214,9 +181,49 @@ struct SessionsSidebar: View {
         }
     }
 
-    private func subtitle(for s: SessionSummary) -> String {
+    private func projectLabel(_ p: String) -> some View {
+        let hidden = store.isHidden(p)
+        return HStack(spacing: 6) {
+            Image(systemName: hidden ? "folder.badge.minus" : "folder")
+                .foregroundStyle(hidden ? Color.secondary : Color.accentColor)
+            Text(p).fontWeight(.medium).foregroundStyle(hidden ? Color.secondary : Color.primary)
+            if hidden {
+                Image(systemName: "eye.slash").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+        .contextMenu {
+            if hidden {
+                Button(L("Unhide project")) { store.setHidden(p, false) }
+            } else {
+                Button(L("Hide project")) { store.setHidden(p, true) }
+            }
+            Button(L("Show in Finder")) { store.reveal(store.projectURL(p)) }
+        }
+    }
+
+    private func sessionRow(_ s: SessionSummary, showProject: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(s.title).lineLimit(1)
+            Text(subtitle(for: s, showProject: showProject))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .tag(SidebarSelection.session(s.id))
+        .contextMenu {
+            Menu(L("Move to project")) {
+                Button(L("No project")) { move(s, to: nil) }
+                ForEach(store.visibleProjects, id: \.self) { p in
+                    Button(p) { move(s, to: p) }
+                }
+            }
+            Button(L("Show in Finder")) { store.reveal(s.folder) }
+            Button(L("Move to Trash"), role: .destructive) { pendingDelete = s }
+        }
+    }
+
+    private func subtitle(for s: SessionSummary, showProject: Bool) -> String {
         var parts = [Self.dateFormatter.string(from: s.startedAt), TimeFormat.clock(s.duration), L10n.speakers(s.speakerCount)]
-        if let p = s.project, projectFilter == nil { parts.append(p) }
+        if showProject, let p = s.project { parts.append(p) }
         return parts.joined(separator: " · ")
     }
 

@@ -2,6 +2,11 @@
 
 Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
 
+## 0.3.0 — 2026-09-26
+
+- Barra lateral rediseñada: los proyectos son grupos desplegables dentro del historial (sesiones sin proyecto arriba). Clic derecho en un proyecto para ocultarlo, mostrarlo o abrirlo en Finder. Botón "+" para crear proyecto y botón ojo para ver los ocultos. Desaparece el menú de carpeta.
+- Búsqueda en la barra lateral: filtra reuniones por título, proyecto, nombres de hablantes y texto del transcript; también filtra contactos.
+
 ## 0.2.0 — 2026-09-26
 
 - Historial de sesiones en la barra lateral, diálogo de guardado con título, descartar a la Papelera.

@@ -12,6 +12,14 @@ struct SessionSummary: Identifiable, Hashable {
     let speakerCount: Int
     let project: String?
     let contactIDs: Set<String>
+    /// Lowercased title + project + speaker names + transcript text, for the sidebar search.
+    let searchText: String
+
+    func matches(_ query: String) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return true }
+        return q.split(separator: " ").allSatisfy { searchText.contains($0) }
+    }
 }
 
 /// Sessions folder (user-configurable), projects (subfolders) and the history list.
@@ -229,10 +237,13 @@ final class SessionStore: ObservableObject {
         let json = folder.appendingPathComponent(transcriptFile)
         guard FileManager.default.fileExists(atPath: json.path), let doc = readDocument(at: folder) else { return nil }
         let id = project.map { "\($0)/\(folder.lastPathComponent)" } ?? folder.lastPathComponent
+        var text = [doc.displayTitle, project ?? ""] + Array(doc.speakerNames.values)
+        text.append(contentsOf: doc.segments.map(\.text))
         return SessionSummary(
             id: id, folder: folder, title: doc.displayTitle, startedAt: doc.startedAt, duration: doc.duration,
             segmentCount: doc.segments.count, speakerCount: Set(doc.segments.compactMap(\.speaker)).count,
-            project: project, contactIDs: Set(doc.speakerContacts.values))
+            project: project, contactIDs: Set(doc.speakerContacts.values),
+            searchText: text.joined(separator: " ").lowercased())
     }
 
     nonisolated static func readDocument(at folder: URL) -> SessionDocument? {
