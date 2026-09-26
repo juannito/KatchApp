@@ -29,7 +29,7 @@ fi
 IDENTITY="${CODESIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"')}"
 if [ -n "$IDENTITY" ]; then
   echo "signing with: $IDENTITY"
-  codesign --force --deep --options runtime --timestamp=none --sign "$IDENTITY" "$APP"
+  codesign --force --deep --options runtime --timestamp=none --entitlements scripts/MeetAI.entitlements --sign "$IDENTITY" "$APP"
 else
   codesign --force --deep --sign - "$APP"
 fi
