@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Read-only view of a saved session, with speaker renaming and title editing persisted to disk.
+/// A saved session: transcript, speaker renaming/linking, title and project, persisted to disk.
 struct SessionDetailView: View {
     @EnvironmentObject var store: SessionStore
+    @EnvironmentObject var contacts: ContactStore
     let summary: SessionSummary
+    @Binding var selection: SidebarSelection?
     @State private var document: SessionDocument?
     @State private var title = ""
     @State private var loadFailed = false
@@ -16,6 +18,10 @@ struct SessionDetailView: View {
         return f
     }()
 
+    private var contactNames: [String: String] {
+        Dictionary(uniqueKeysWithValues: contacts.contacts.map { ($0.id, $0.name) })
+    }
+
     var body: some View {
         Group {
             if let doc = document {
@@ -24,18 +30,30 @@ struct SessionDetailView: View {
                     Divider()
                     HSplitView {
                         TranscriptListView(
-                            turns: doc.turns, names: doc.speakerNames, emptyText: L("This session has no text."),
-                            autoScroll: false)
+                            turns: doc.turns, names: doc.effectiveNames(contactNames: contactNames),
+                            emptyText: L("This session has no text."), autoScroll: false)
                         .frame(minWidth: 320)
                         SpeakersPanel(
-                            slots: Set(doc.segments.compactMap(\.speaker)).sorted(),
-                            names: doc.speakerNames,
-                            micFraction: doc.speakerMicFraction,
-                            showMicHint: doc.micEnabled && doc.systemAudioEnabled
-                        ) { slot, name in
-                            document?.speakerNames[slot] = name
-                            persist()
-                        }
+                            rows: Set(doc.segments.compactMap(\.speaker)).sorted().map { slot in
+                                let contact = contacts.contact(doc.speakerContacts[slot])
+                                return SpeakerRowModel(
+                                    slot: slot, customName: doc.speakerNames[slot] ?? "", contactName: contact?.name,
+                                    contact: contact,
+                                    isLikelyMe: doc.micEnabled && doc.systemAudioEnabled && (doc.speakerMicFraction[slot] ?? 0) > 0.6)
+                            },
+                            contacts: contacts.contacts,
+                            onRename: { slot, name in
+                                document?.speakerNames[slot] = name
+                                persist()
+                            },
+                            onLink: { slot, contactID in
+                                document?.speakerContacts[slot] = contactID
+                                if let contactID, let e = document?.speakerEmbeddings[slot] {
+                                    contacts.enroll(contactID, embedding: e)
+                                }
+                                persist()
+                            }
+                        )
                         .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
                     }
                     Divider()
@@ -66,6 +84,16 @@ struct SessionDetailView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Menu {
+                Button(L("No project")) { move(to: nil) }
+                if !store.visibleProjects.isEmpty { Divider() }
+                ForEach(store.visibleProjects, id: \.self) { p in
+                    Button(p) { move(to: p) }
+                }
+            } label: {
+                Label(summary.project ?? L("No project"), systemImage: "folder")
+            }
+            .fixedSize()
         }
         .padding(16)
     }
@@ -79,8 +107,10 @@ struct SessionDetailView: View {
                 .truncationMode(.middle)
             Spacer()
             Button(L("Copy transcript")) {
+                var d = doc
+                d.speakerNames = doc.effectiveNames(contactNames: contactNames)
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(doc.markdown(), forType: .string)
+                NSPasteboard.general.setString(d.markdown(), forType: .string)
             }
             Button(L("Open audio")) { NSWorkspace.shared.open(summary.folder.appendingPathComponent(SessionStore.audioFile)) }
             Button(L("Show in Finder")) { store.reveal(summary.folder) }
@@ -101,5 +131,13 @@ struct SessionDetailView: View {
     private func persist() {
         guard let doc = document else { return }
         store.save(doc, to: summary.folder)
+    }
+
+    private func move(to project: String?) {
+        guard project != summary.project else { return }
+        if let moved = store.move(sessionFolder: summary.folder, toProject: project) {
+            let id = project.map { "\($0)/\(moved.lastPathComponent)" } ?? moved.lastPathComponent
+            selection = .session(id)
+        }
     }
 }

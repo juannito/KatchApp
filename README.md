@@ -31,7 +31,9 @@ swift build && .build/debug/MeetAI
 5. Renombrá hablantes en el panel derecho. El ícono 🎤 marca la voz que entra por tu micrófono.
 6. **Detener**. Aparece el diálogo "Guardar reunión": ponele un título y guardá, o descartá (la carpeta va a la Papelera).
 7. Las sesiones guardadas quedan en la barra lateral (**Historial**). Al abrir una podés releer el transcript, renombrar hablantes, cambiar el título, copiar el Markdown, abrir el audio o mostrarla en Finder. Clic derecho para mandarla a la Papelera.
-8. **Ajustes** (⌘,) para elegir la carpeta donde se guardan las sesiones. Por defecto `~/Documents/MeetAI/<fecha>/` con `transcript.md`, `transcript.json` y `audio.wav`.
+8. **Ajustes** (⌘,): idioma (inglés por defecto, español), carpeta de sesiones y proyectos ocultos. Por defecto `~/Documents/MeetAI/<proyecto>/<fecha>/` con `transcript.md`, `transcript.json` y `audio.wav`.
+9. **Proyectos.** Al guardar elegís un proyecto (una subcarpeta) o creás uno nuevo. El filtro de carpeta en la barra lateral muestra un proyecto, los sin proyecto o todos. Un proyecto se puede **ocultar** (menú del filtro o Ajustes): desaparece de la barra y del historial hasta que activás "Mostrar proyectos ocultos", que se resetea en cada arranque. Pensado para compartir pantalla sin exponer otros proyectos.
+10. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). MeetAI guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
 
 ## Self-test sin UI
 
@@ -61,3 +63,4 @@ doc/         investigación de modelos y pipeline
 - El diarizador tarda ~0.5–1 s en "descubrir" a un hablante nuevo: la primera palabra de alguien que habla por primera vez puede quedar pegada al hablante anterior. Un re-pase offline al cerrar la sesión lo corregiría (pendiente).
 - Primer arranque: descarga ~700 MB y compila los modelos para el Neural Engine (1–2 min). Arranques siguientes: bastante más rápido gracias a la caché de CoreML del bundle.
 - Log de diagnóstico: `~/Library/Logs/MeetAI/app.log`.
+- El umbral de sugerencia de voz (`ContactStore.suggestThreshold`, 0.70) está calibrado con voces sintéticas; con voces reales puede convenir bajarlo. Con voces de TTS muy parecidas el diarizador puede fusionar hablantes.

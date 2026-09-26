@@ -3,24 +3,33 @@ import SwiftUI
 enum SidebarSelection: Hashable {
     case live
     case session(String)
+    case contact(String)
 }
 
 struct ContentView: View {
     @EnvironmentObject var modelStore: ModelStore
     @EnvironmentObject var session: RecordingSession
     @EnvironmentObject var store: SessionStore
+    @EnvironmentObject var contacts: ContactStore
     @State private var selection: SidebarSelection? = .live
 
     var body: some View {
         NavigationSplitView {
             SessionsSidebar(selection: $selection)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             switch selection {
             case .session(let id):
                 if let summary = store.sessions.first(where: { $0.id == id }) {
-                    SessionDetailView(summary: summary)
+                    SessionDetailView(summary: summary, selection: $selection)
                         .id(summary.id)
+                } else {
+                    LiveView()
+                }
+            case .contact(let id):
+                if let contact = contacts.contact(id) {
+                    ContactDetailView(contact: contact, selection: $selection)
+                        .id(contact.id)
                 } else {
                     LiveView()
                 }
@@ -32,10 +41,11 @@ struct ContentView: View {
             if status == .recording { selection = .live }
         }
         .sheet(item: $session.pendingSave) { doc in
-            SaveSheet(document: doc) { title in
-                session.confirmSave(title: title)
+            SaveSheet(document: doc) { title, project, links in
+                session.confirmSave(title: title, project: project, links: links)
                 if let folder = session.sessionFolder {
-                    selection = .session(folder.lastPathComponent)
+                    let id = project.map { "\($0)/\(folder.lastPathComponent)" } ?? folder.lastPathComponent
+                    selection = .session(id)
                 }
             } onDiscard: {
                 session.discard()
@@ -47,11 +57,16 @@ struct ContentView: View {
 
 extension SessionDocument: Identifiable {}
 
+// MARK: - Sidebar
+
 struct SessionsSidebar: View {
     @EnvironmentObject var session: RecordingSession
     @EnvironmentObject var store: SessionStore
+    @EnvironmentObject var contacts: ContactStore
     @Binding var selection: SidebarSelection?
     @State private var pendingDelete: SessionSummary?
+    /// nil = all projects, .some(nil) = sessions without project, .some(name) = one project
+    @State private var projectFilter: String?? = nil
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -59,6 +74,18 @@ struct SessionsSidebar: View {
         f.dateFormat = "EEE d MMM, HH:mm"
         return f
     }()
+
+    private var filteredSessions: [SessionSummary] {
+        store.sessions(project: projectFilter)
+    }
+
+    private var filterLabel: String {
+        switch projectFilter {
+        case .none: return L("All sessions")
+        case .some(.none): return L("No project")
+        case .some(.some(let p)): return p
+        }
+    }
 
     var body: some View {
         List(selection: $selection) {
@@ -72,32 +99,87 @@ struct SessionsSidebar: View {
                 .tag(SidebarSelection.live)
             }
             Section(L("History")) {
-                if store.sessions.isEmpty {
+                if filteredSessions.isEmpty {
                     Text(L("No saved sessions yet."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(store.sessions) { s in
+                ForEach(filteredSessions) { s in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(s.title).lineLimit(1)
-                        Text("\(Self.dateFormatter.string(from: s.startedAt)) · \(TimeFormat.clock(s.duration)) · \(L10n.speakers(s.speakerCount))")
+                        HStack(spacing: 6) {
+                            Text(s.title).lineLimit(1)
+                            if store.isHidden(s.project) {
+                                Image(systemName: "eye.slash").font(.caption).foregroundStyle(.tertiary)
+                            }
+                        }
+                        Text(subtitle(for: s))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .tag(SidebarSelection.session(s.id))
                     .contextMenu {
+                        Menu(L("Move to project")) {
+                            Button(L("No project")) { move(s, to: nil) }
+                            ForEach(store.visibleProjects, id: \.self) { p in
+                                Button(p) { move(s, to: p) }
+                            }
+                        }
                         Button(L("Show in Finder")) { store.reveal(s.folder) }
                         Button(L("Move to Trash"), role: .destructive) { pendingDelete = s }
                     }
+                }
+            }
+            Section(L("Contacts")) {
+                if contacts.contacts.isEmpty {
+                    Text(L("No contacts yet. Link a speaker to a contact when saving a meeting."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(contacts.contacts) { c in
+                    HStack(spacing: 8) {
+                        AvatarView(contact: c, size: 22)
+                        Text(c.name).lineLimit(1)
+                    }
+                    .tag(SidebarSelection.contact(c.id))
                 }
             }
         }
         .listStyle(.sidebar)
         .toolbar {
             ToolbarItem {
-                Button { store.reload() } label: { Image(systemName: "arrow.clockwise") }
+                Menu {
+                    Picker(L("Projects"), selection: $projectFilter) {
+                        Text(L("All sessions")).tag(String??.none)
+                        Text(L("No project")).tag(String??.some(.none))
+                        ForEach(store.visibleProjects, id: \.self) { p in
+                            Label(p, systemImage: store.isHidden(p) ? "eye.slash" : "folder").tag(String??.some(.some(p)))
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    Divider()
+                    Toggle(L("Show hidden projects"), isOn: $store.showHidden)
+                    if !store.projects.isEmpty {
+                        Divider()
+                        ForEach(store.projects, id: \.self) { p in
+                            if store.isHidden(p) {
+                                Button(L("Unhide project") + ": \(p)") { store.setHidden(p, false) }
+                            } else {
+                                Button(L("Hide project") + ": \(p)") { store.setHidden(p, true) }
+                            }
+                        }
+                    }
+                } label: {
+                    Label(filterLabel, systemImage: "folder")
+                }
+                .help(L("Projects"))
+            }
+            ToolbarItem {
+                Button { store.reload(); contacts.reload() } label: { Image(systemName: "arrow.clockwise") }
                     .help(L("Reload history"))
             }
+        }
+        .onChange(of: store.showHidden) { _, show in
+            if !show, case .some(.some(let p)) = projectFilter, store.isHidden(p) { projectFilter = nil }
         }
         .alert(L("Move this session to the Trash?"), isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })) {
             Button(L("Move to Trash"), role: .destructive) {
@@ -112,7 +194,48 @@ struct SessionsSidebar: View {
             Text(L("The transcript and audio of “%@” will be moved. You can recover them from the Trash.", pendingDelete?.title ?? ""))
         }
     }
+
+    private func subtitle(for s: SessionSummary) -> String {
+        var parts = [Self.dateFormatter.string(from: s.startedAt), TimeFormat.clock(s.duration), L10n.speakers(s.speakerCount)]
+        if let p = s.project, projectFilter == nil { parts.append(p) }
+        return parts.joined(separator: " · ")
+    }
+
+    private func move(_ s: SessionSummary, to project: String?) {
+        if let moved = store.move(sessionFolder: s.folder, toProject: project) {
+            let id = project.map { "\($0)/\(moved.lastPathComponent)" } ?? moved.lastPathComponent
+            if selection == .session(s.id) { selection = .session(id) }
+        }
+    }
 }
+
+struct AvatarView: View {
+    @EnvironmentObject var contacts: ContactStore
+    let contact: Contact
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let img = contacts.avatar(for: contact.id) {
+                Image(nsImage: img).resizable().scaledToFill()
+            } else {
+                ZStack {
+                    Circle().fill(Color.accentColor.opacity(0.25))
+                    Text(initials).font(.system(size: size * 0.42, weight: .semibold))
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+    }
+
+    private var initials: String {
+        let parts = contact.name.split(separator: " ").prefix(2)
+        return parts.map { String($0.prefix(1)).uppercased() }.joined()
+    }
+}
+
+// MARK: - Live view
 
 struct LiveView: View {
     @EnvironmentObject var modelStore: ModelStore
@@ -130,8 +253,17 @@ struct LiveView: View {
                     emptyDetail: session.isRecording ? nil : L("Everything runs on your Mac: transcription (Parakeet TDT v3, English and Spanish) and speaker separation (Nemotron 3, up to 8 voices). Text shows up a few seconds after each pause, and the speaker is assigned about a second later.")
                 )
                 .frame(minWidth: 320)
-                LiveSpeakersPanel()
-                    .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
+                SpeakersPanel(
+                    rows: session.speakerSlots.map { slot in
+                        SpeakerRowModel(
+                            slot: slot, customName: session.speakerNames[slot] ?? "", contactName: nil, contact: nil,
+                            isLikelyMe: session.micEnabled && session.systemAudioEnabled && (session.speakerMicFraction[slot] ?? 0) > 0.6)
+                    },
+                    contacts: [],
+                    onRename: { slot, name in session.rename(speaker: slot, to: name) },
+                    onLink: nil
+                )
+                .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
             }
             Divider()
             footer
@@ -139,12 +271,20 @@ struct LiveView: View {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
+    private var statusText: String {
+        switch session.status {
+        case .recording: return L("Recording")
+        case .finishing: return L("Finishing…")
+        case .analyzing: return L("Analyzing voices…")
+        case .idle: return L("Ready")
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 16) {
             RecordButton()
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.isRecording ? L("Recording") : (session.status == .finishing ? L("Finishing…") : L("Ready")))
-                    .font(.headline)
+                Text(statusText).font(.headline)
                 Text(TimeFormat.clock(session.elapsed))
                     .font(.system(.title2, design: .monospaced))
                     .foregroundStyle(session.isRecording ? .primary : .secondary)
@@ -180,26 +320,21 @@ struct LiveView: View {
     }
 }
 
-struct LiveSpeakersPanel: View {
-    @EnvironmentObject var session: RecordingSession
-
-    var body: some View {
-        SpeakersPanel(
-            slots: session.speakerSlots,
-            names: session.speakerNames,
-            micFraction: session.speakerMicFraction,
-            showMicHint: session.micEnabled && session.systemAudioEnabled
-        ) { slot, name in
-            session.rename(speaker: slot, to: name)
-        }
-    }
-}
+// MARK: - Save sheet
 
 struct SaveSheet: View {
+    @EnvironmentObject var session: RecordingSession
+    @EnvironmentObject var store: SessionStore
+    @EnvironmentObject var contacts: ContactStore
     let document: SessionDocument
-    let onSave: (String) -> Void
+    let onSave: (String, String?, [Int: String]) -> Void
     let onDiscard: () -> Void
+
     @State private var title = ""
+    @State private var project: String? = UserDefaults.standard.string(forKey: "lastProject")
+    @State private var newProjectName = ""
+    @State private var showNewProject = false
+    @State private var links: [Int: String] = [:]
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -209,6 +344,8 @@ struct SaveSheet: View {
         return f
     }()
 
+    private var slots: [Int] { Set(document.segments.compactMap(\.speaker)).sorted() }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(L("Save meeting")).font(.title2.weight(.semibold))
@@ -216,19 +353,120 @@ struct SaveSheet: View {
                 .foregroundStyle(.secondary)
             TextField(L("Title (optional)"), text: $title)
                 .textFieldStyle(.roundedBorder)
-                .onSubmit { onSave(title) }
+
+            HStack {
+                Picker(L("Project"), selection: $project) {
+                    Text(L("No project")).tag(String?.none)
+                    ForEach(store.visibleProjects, id: \.self) { p in Text(p).tag(String?.some(p)) }
+                }
+                .frame(maxWidth: 320)
+                Button(L("New project…")) { showNewProject = true }
+            }
+            if showNewProject {
+                HStack {
+                    TextField(L("Project name"), text: $newProjectName)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(createProject)
+                    Button(L("Create"), action: createProject).disabled(newProjectName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+
+            if !slots.isEmpty {
+                Divider()
+                Text(L("Speakers")).font(.headline)
+                Text(session.voiceRecognitionAvailable
+                    ? L("Link speakers to contacts so MeetAI recognises them next time.")
+                    : L("Voice recognition is unavailable (model not loaded)."))
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(slots, id: \.self) { slot in
+                    SaveSpeakerRow(slot: slot, links: $links)
+                }
+            }
+
             HStack {
                 Button(L("Discard"), role: .destructive) { onDiscard() }
                 Spacer()
-                Button(L("Save")) { onSave(title) }
+                Button(L("Save")) { onSave(title, project, links) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
             }
         }
         .padding(24)
-        .frame(width: 460)
+        .frame(width: 560)
+        .onAppear {
+            if let p = project, !store.visibleProjects.contains(p) { project = nil }
+        }
+    }
+
+    private func createProject() {
+        if let created = store.createProject(newProjectName) {
+            project = created
+            newProjectName = ""
+            showNewProject = false
+        }
     }
 }
+
+struct SaveSpeakerRow: View {
+    @EnvironmentObject var session: RecordingSession
+    @EnvironmentObject var contacts: ContactStore
+    let slot: Int
+    @Binding var links: [Int: String]
+    @State private var name = ""
+
+    private var suggestion: ContactMatch? { session.speakerSuggestions[slot] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Circle().fill(SpeakerPalette.color(for: slot)).frame(width: 12, height: 12)
+                TextField(SpeakerLabel.defaultName(for: slot), text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+                    .onChange(of: name) { _, new in session.rename(speaker: slot, to: new) }
+                Menu {
+                    Button(L("No contact")) { links[slot] = nil }
+                    if !contacts.contacts.isEmpty { Divider() }
+                    ForEach(contacts.contacts) { c in
+                        Button(c.name) { links[slot] = c.id }
+                    }
+                    Divider()
+                    Button(L("Create contact “%@”", name.isEmpty ? SpeakerLabel.defaultName(for: slot) : name)) {
+                        let contactName = name.isEmpty ? SpeakerLabel.defaultName(for: slot) : name
+                        if let id = session.createContact(named: contactName, forSlot: slot) { links[slot] = id }
+                    }
+                } label: {
+                    if let c = contacts.contact(links[slot]) {
+                        Label(c.name, systemImage: "person.crop.circle.fill")
+                    } else {
+                        Label(L("No contact"), systemImage: "person.crop.circle")
+                    }
+                }
+                .frame(width: 200)
+                if (session.speakerMicFraction[slot] ?? 0) > 0.6, session.micEnabled, session.systemAudioEnabled {
+                    Image(systemName: "mic.fill").foregroundStyle(.secondary)
+                        .help(L("This voice comes through your microphone: probably you."))
+                }
+            }
+            if let s = suggestion, links[slot] == nil, let c = contacts.contact(s.contactID) {
+                HStack(spacing: 8) {
+                    Image(systemName: "waveform.badge.magnifyingglass").foregroundStyle(.secondary)
+                    Text(L("Looks like %@ (%d%%)", c.name, Int((s.score * 100).rounded())))
+                        .font(.callout)
+                    Button(L("Confirm")) {
+                        links[slot] = c.id
+                        if name.isEmpty { name = c.name }
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.leading, 20)
+            }
+        }
+        .onAppear { name = session.speakerNames[slot] ?? "" }
+    }
+}
+
+// MARK: - Shared controls
 
 struct RecordButton: View {
     @EnvironmentObject var modelStore: ModelStore
@@ -252,7 +490,7 @@ struct RecordButton: View {
         .buttonStyle(.borderedProminent)
         .tint(session.isRecording ? .red : .accentColor)
         .controlSize(.large)
-        .disabled(!modelStore.isReady || session.status == .finishing)
+        .disabled(!modelStore.isReady || session.status == .finishing || session.status == .analyzing)
         .keyboardShortcut("r", modifiers: [.command])
     }
 }

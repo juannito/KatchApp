@@ -1,4 +1,5 @@
 import AppKit
+import FluidAudio
 import Foundation
 import SwiftUI
 
@@ -8,6 +9,7 @@ final class RecordingSession: ObservableObject {
         case idle
         case recording
         case finishing
+        case analyzing
     }
 
     @Published var status: Status = .idle
@@ -22,11 +24,14 @@ final class RecordingSession: ObservableObject {
     @Published var sessionFolder: URL?
     @Published var micEnabled = true
     @Published var systemAudioEnabled = true
-    /// Set after `stop()`: the UI shows the "guardar / descartar" sheet.
+    /// Set after `stop()`: the UI shows the save sheet.
     @Published var pendingSave: SessionDocument?
+    /// Voice-recognition suggestions per speaker slot, computed when the recording stops.
+    @Published var speakerSuggestions: [Int: ContactMatch] = [:]
 
     private var models: LoadedModels?
     private weak var store: SessionStore?
+    private weak var contacts: ContactStore?
     private var engine: TranscriptionEngine?
     private var mic: MicCapture?
     private var tap: SystemAudioTap?
@@ -41,10 +46,12 @@ final class RecordingSession: ObservableObject {
 
     var isRecording: Bool { status == .recording }
     var speakerSlots: [Int] { Set(segments.compactMap(\.speaker)).sorted() }
+    var voiceRecognitionAvailable: Bool { models?.fingerprinter != nil }
 
-    func attach(models: LoadedModels, store: SessionStore) {
+    func attach(models: LoadedModels, store: SessionStore, contacts: ContactStore) {
         self.models = models
         self.store = store
+        self.contacts = contacts
     }
 
     // MARK: - Start
@@ -57,6 +64,7 @@ final class RecordingSession: ObservableObject {
         }
         message = nil
         pendingSave = nil
+        speakerSuggestions = [:]
         segments = []
         speakerNames = [:]
         speakerMicFraction = [:]
@@ -82,7 +90,7 @@ final class RecordingSession: ObservableObject {
         }
 
         document = SessionDocument(
-            id: UUID(), title: nil, startedAt: startedAt, endedAt: nil, micEnabled: micEnabled,
+            id: UUID(), startedAt: startedAt, endedAt: nil, micEnabled: micEnabled,
             systemAudioEnabled: systemAudioEnabled, speakerNames: [:], speakerMicFraction: [:], segments: [])
 
         let engine = TranscriptionEngine(models: models)
@@ -163,7 +171,7 @@ final class RecordingSession: ObservableObject {
     // MARK: - Stop
 
     func stop() async {
-        guard status == .recording else { return }
+        guard status == .recording, let engine else { return }
         status = .finishing
         timer?.invalidate()
         timer = nil
@@ -172,29 +180,79 @@ final class RecordingSession: ObservableObject {
         chunkContinuation?.finish()
         await feederTask?.value
         await eventTask?.value
-        wav?.close {}
+        let ranges = await engine.exclusiveSpeechRanges()
+        await wav?.finish()
         cleanupCapture()
+
         var doc = currentDocument()
         doc.endedAt = Date()
         document = doc
         autosave()
         AppLog.write("recording stopped: \(segments.count) segments, \(speakerSlots.count) speakers")
+
+        status = .analyzing
+        doc.speakerEmbeddings = await computeEmbeddings(ranges: ranges)
+        document = doc
+        var suggestions: [Int: ContactMatch] = [:]
+        if let contacts {
+            for (slot, emb) in doc.speakerEmbeddings {
+                if let m = contacts.bestMatch(for: emb) { suggestions[slot] = m }
+            }
+        }
+        speakerSuggestions = suggestions
         status = .idle
         pendingSave = doc
     }
 
+    private func computeEmbeddings(ranges: [Int: [TimeRange]]) async -> [Int: [Float]] {
+        guard let fp = models?.fingerprinter, let folder = sessionFolder else { return [:] }
+        let audioURL = folder.appendingPathComponent(SessionStore.audioFile)
+        guard let audio = try? AudioConverter().resampleAudioFile(audioURL) else { return [:] }
+        var out: [Int: [Float]] = [:]
+        for slot in speakerSlots {
+            guard let r = ranges[slot], !r.isEmpty else { continue }
+            do {
+                if let e = try await fp.embed(sessionAudio: audio, ranges: r) { out[slot] = e }
+            } catch {
+                AppLog.write("embedding failed for speaker \(slot): \(error)")
+            }
+        }
+        AppLog.write("voice embeddings: \(out.count)/\(speakerSlots.count) speakers")
+        return out
+    }
+
     /// User confirmed the save sheet.
-    func confirmSave(title: String) {
-        guard var doc = pendingSave, let folder = sessionFolder else { return }
+    func confirmSave(title: String, project: String?, links: [Int: String]) {
+        guard var doc = pendingSave, var folder = sessionFolder, let store else { return }
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         doc.title = trimmed.isEmpty ? nil : trimmed
         doc.segments = segments
         doc.speakerNames = speakerNames
         doc.speakerMicFraction = speakerMicFraction
+        doc.speakerContacts = links
+        doc.project = project
+        for (slot, cid) in links {
+            if let e = doc.speakerEmbeddings[slot] { contacts?.enroll(cid, embedding: e) }
+        }
+        if let moved = store.move(sessionFolder: folder, toProject: project) {
+            folder = moved
+            sessionFolder = moved
+        }
         document = doc
-        store?.save(doc, to: folder)
-        AppLog.write("session saved: \(folder.lastPathComponent) title=\(doc.displayTitle)")
+        store.save(doc, to: folder)
+        if let project { UserDefaults.standard.set(project, forKey: "lastProject") } else {
+            UserDefaults.standard.removeObject(forKey: "lastProject")
+        }
+        AppLog.write("session saved: \(folder.lastPathComponent) title=\(doc.displayTitle) project=\(project ?? "-") links=\(links.count)")
         pendingSave = nil
+        speakerSuggestions = [:]
+    }
+
+    /// Creates a contact for a speaker slot, seeded with its voice embedding.
+    func createContact(named name: String, forSlot slot: Int) -> String? {
+        guard let contacts else { return nil }
+        let c = contacts.create(name: name, embedding: pendingSave?.speakerEmbeddings[slot])
+        return c.id
     }
 
     /// User discarded the recording: the folder (audio + transcript) goes to the Trash.
@@ -205,6 +263,7 @@ final class RecordingSession: ObservableObject {
         }
         store?.reload()
         pendingSave = nil
+        speakerSuggestions = [:]
         sessionFolder = nil
         document = nil
         segments = []
@@ -266,7 +325,7 @@ final class RecordingSession: ObservableObject {
 
     private func currentDocument() -> SessionDocument {
         var doc = document ?? SessionDocument(
-            id: UUID(), title: nil, startedAt: startedAt, endedAt: nil, micEnabled: micEnabled,
+            id: UUID(), startedAt: startedAt, endedAt: nil, micEnabled: micEnabled,
             systemAudioEnabled: systemAudioEnabled, speakerNames: [:], speakerMicFraction: [:], segments: [])
         doc.segments = segments
         doc.speakerNames = speakerNames

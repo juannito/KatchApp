@@ -76,28 +76,32 @@ struct TurnRow: View {
     }
 }
 
-/// Speaker list with inline renaming. `onRename` is called on submit.
+struct SpeakerRowModel: Identifiable {
+    var id: Int { slot }
+    let slot: Int
+    let customName: String
+    let contactName: String?
+    let contact: Contact?
+    let isLikelyMe: Bool
+}
+
+/// Speaker list with inline renaming and optional contact linking.
 struct SpeakersPanel: View {
-    let slots: [Int]
-    let names: [Int: String]
-    let micFraction: [Int: Double]
-    let showMicHint: Bool
+    let rows: [SpeakerRowModel]
+    let contacts: [Contact]
     let onRename: (Int, String) -> Void
+    let onLink: ((Int, String?) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(L("Speakers")).font(.headline)
-            if slots.isEmpty {
+            if rows.isEmpty {
                 Text(L("They appear as they speak."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            ForEach(slots, id: \.self) { slot in
-                SpeakerRow(
-                    slot: slot,
-                    name: names[slot] ?? "",
-                    isLikelyMe: showMicHint && (micFraction[slot] ?? 0) > 0.6,
-                    onRename: { onRename(slot, $0) })
+            ForEach(rows) { row in
+                SpeakerRow(row: row, contacts: contacts, onRename: { onRename(row.slot, $0) }, onLink: onLink.map { link in { link(row.slot, $0) } })
             }
             Spacer()
             Text(L("Click a name to rename it and press Enter. Saved to transcript.md and transcript.json."))
@@ -111,23 +115,48 @@ struct SpeakersPanel: View {
 }
 
 struct SpeakerRow: View {
-    let slot: Int
-    let name: String
-    let isLikelyMe: Bool
+    let row: SpeakerRowModel
+    let contacts: [Contact]
     let onRename: (String) -> Void
+    let onLink: ((String?) -> Void)?
     @State private var draft = ""
 
     var body: some View {
-        HStack(spacing: 8) {
-            Circle().fill(SpeakerPalette.color(for: slot)).frame(width: 12, height: 12)
-            TextField(SpeakerLabel.defaultName(for: slot), text: $draft)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit { onRename(draft) }
-                .onAppear { draft = name }
-            if isLikelyMe {
-                Image(systemName: "mic.fill")
-                    .foregroundStyle(.secondary)
-                    .help(L("This voice comes through your microphone: probably you."))
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                if let c = row.contact {
+                    AvatarView(contact: c, size: 18)
+                } else {
+                    Circle().fill(SpeakerPalette.color(for: row.slot)).frame(width: 12, height: 12)
+                }
+                if let contactName = row.contactName {
+                    Text(contactName).font(.body.weight(.medium)).lineLimit(1)
+                    Spacer()
+                } else {
+                    TextField(SpeakerLabel.defaultName(for: row.slot), text: $draft)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { onRename(draft) }
+                        .onAppear { draft = row.customName }
+                }
+                if row.isLikelyMe {
+                    Image(systemName: "mic.fill")
+                        .foregroundStyle(.secondary)
+                        .help(L("This voice comes through your microphone: probably you."))
+                }
+                if let onLink {
+                    Menu {
+                        Button(L("No contact")) { onLink(nil) }
+                        if !contacts.isEmpty { Divider() }
+                        ForEach(contacts) { c in
+                            Button(c.name) { onLink(c.id) }
+                        }
+                    } label: {
+                        Image(systemName: row.contact == nil ? "person.crop.circle" : "person.crop.circle.fill")
+                    }
+                    .menuStyle(.borderlessButton)
+                    .frame(width: 28)
+                    .help(L("Contact"))
+                }
             }
         }
     }

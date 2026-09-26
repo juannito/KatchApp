@@ -3,7 +3,7 @@ import Foundation
 /// Edit these to personalise the About window.
 enum AppInfo {
     static let name = "MeetAI"
-    static let author = "Juan (@juannito)"
+    static let author = "Juan (@juannito) — freelance product designer & vibe coder"
     static let repositoryURL = URL(string: "https://github.com/juannito/openmeet")!
     static var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"

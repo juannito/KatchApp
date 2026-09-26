@@ -360,6 +360,33 @@ actor TranscriptionEngine {
         return active > 0 ? Double(mic) / Double(active) : 0
     }
 
+    /// Time ranges where exactly one speaker is active, per speaker slot (for voice fingerprints).
+    func exclusiveSpeechRanges(minDuration: Double = 0.6) -> [Int: [TimeRange]] {
+        var out: [Int: [TimeRange]] = [:]
+        var runStart = [Int?](repeating: nil, count: numSpeakers)
+        for f in 0...diarFrames {
+            var exclusive: Int? = nil
+            if f < diarFrames {
+                var count = 0
+                for s in 0..<numSpeakers where probs[f * numSpeakers + s] > 0.5 {
+                    count += 1
+                    exclusive = s
+                }
+                if count != 1 { exclusive = nil }
+            }
+            for s in 0..<numSpeakers {
+                if exclusive == s {
+                    if runStart[s] == nil { runStart[s] = f }
+                } else if let st = runStart[s] {
+                    let range = TimeRange(start: Double(st) * Self.frameSeconds, end: Double(f) * Self.frameSeconds)
+                    if range.duration >= minDuration { out[s, default: []].append(range) }
+                    runStart[s] = nil
+                }
+            }
+        }
+        return out
+    }
+
     // MARK: - Diagnostics
 
     func diarizationSegments() -> [Nemotron3Segment] {

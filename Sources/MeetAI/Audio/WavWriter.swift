@@ -35,7 +35,10 @@ final class WavWriter {
         }
     }
 
-    func close(completion: @escaping () -> Void) {
-        queue.async { completion() }
+    /// Resolves once every queued buffer has been written.
+    func finish() async {
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            queue.async { c.resume() }
+        }
     }
 }

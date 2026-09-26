@@ -7,6 +7,7 @@ struct LoadedModels: @unchecked Sendable {
     let vad: VadManager
     let diarizerModels: Nemotron3Models
     let diarizerConfig: Nemotron3Config
+    let fingerprinter: VoiceFingerprinter?
 }
 
 enum ModelLoader {
@@ -44,8 +45,17 @@ enum ModelLoader {
             config: diarizerConfig,
             progressHandler: { p in progress("Downloading diarization (Nemotron 3)…", p.fractionCompleted) })
 
+        progress("Downloading voice ID (CAM++)…", 0)
+        var fingerprinter: VoiceFingerprinter? = nil
+        do {
+            fingerprinter = try await VoiceFingerprinter.load()
+        } catch {
+            AppLog.write("voice fingerprint model unavailable: \(error)")
+        }
+
         progress("Models ready", 1)
-        AppLog.write("models ready (diarizer preset: \(diarizerConfig.modelFileName))")
-        return LoadedModels(asr: asr, vad: vad, diarizerModels: diar, diarizerConfig: diarizerConfig)
+        AppLog.write("models ready (diarizer preset: \(diarizerConfig.modelFileName), voice id: \(fingerprinter != nil))")
+        return LoadedModels(
+            asr: asr, vad: vad, diarizerModels: diar, diarizerConfig: diarizerConfig, fingerprinter: fingerprinter)
     }
 }

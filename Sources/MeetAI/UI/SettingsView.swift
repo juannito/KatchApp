@@ -35,6 +35,27 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section(L("Projects")) {
+                if store.projects.isEmpty {
+                    Text(L("No projects yet. Create one from the save dialog."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(store.projects, id: \.self) { p in
+                    Toggle(isOn: Binding(get: { store.isHidden(p) }, set: { store.setHidden(p, $0) })) {
+                        HStack {
+                            Text(p)
+                            if store.isHidden(p) {
+                                Text(L("Hidden")).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .toggleStyle(.switch)
+                }
+                Text(L("Hidden projects are left out of the sidebar and history until you enable “Show hidden projects” (handy when sharing your screen). The setting resets on every launch."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section(L("Diagnostics")) {
                 LabeledContent(L("Log")) {
                     Button(L("Open app.log")) { store.reveal(AppLog.url) }

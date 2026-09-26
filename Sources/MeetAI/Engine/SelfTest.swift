@@ -81,6 +81,37 @@ enum SelfTest {
             let name = SpeakerLabel.name(for: turn.speaker, names: [:])
             print(String(format: "  [%@ – %@] %@: %@", TimeFormat.clock(turn.start), TimeFormat.clock(turn.end), name, turn.text))
         }
+        // Voice fingerprint sanity check: same speaker (two halves) should score high,
+        // different speakers low.
+        if let fp = models.fingerprinter {
+            let ranges = await engine.exclusiveSpeechRanges()
+            var embeddings: [Int: [Float]] = [:]
+            var halves: [Int: ([Float], [Float])] = [:]
+            for (slot, r) in ranges.sorted(by: { $0.key < $1.key }) {
+                let total = r.reduce(0) { $0 + $1.duration }
+                let mid = r.count / 2
+                do {
+                    if let e = try await fp.embed(sessionAudio: samples, ranges: r) { embeddings[slot] = e }
+                    if r.count >= 2, let a = try await fp.embed(sessionAudio: samples, ranges: Array(r[0..<mid])),
+                        let b = try await fp.embed(sessionAudio: samples, ranges: Array(r[mid...]))
+                    {
+                        halves[slot] = (a, b)
+                    }
+                } catch {
+                    print("[selftest] embedding error spk\(slot): \(error)")
+                }
+                print(String(format: "[selftest] spk%d exclusive speech %.1fs in %d ranges, embedding: %@", slot, total, r.count, embeddings[slot] == nil ? "no" : "yes"))
+            }
+            for (slot, h) in halves.sorted(by: { $0.key < $1.key }) {
+                print(String(format: "[selftest] spk%d self-similarity (half vs half): %.3f", slot, VoiceFingerprinter.cosine(h.0, h.1)))
+            }
+            let slots = embeddings.keys.sorted()
+            for i in 0..<slots.count {
+                for j in (i + 1)..<slots.count {
+                    print(String(format: "[selftest] spk%d vs spk%d similarity: %.3f", slots[i], slots[j], VoiceFingerprinter.cosine(embeddings[slots[i]]!, embeddings[slots[j]]!)))
+                }
+            }
+        }
         if !warnings.isEmpty {
             print("[selftest] avisos:")
             for w in warnings { print("  - \(w)") }

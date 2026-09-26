@@ -21,16 +21,74 @@ struct TranscriptSegment: Codable, Identifiable, Sendable {
     }
 }
 
+struct TimeRange: Codable, Sendable, Hashable {
+    var start: Double
+    var end: Double
+    var duration: Double { end - start }
+}
+
 struct SessionDocument: Codable {
     var id: UUID
     var title: String? = nil
+    var project: String? = nil
     var startedAt: Date
     var endedAt: Date?
     var micEnabled: Bool
     var systemAudioEnabled: Bool
     var speakerNames: [Int: String]
     var speakerMicFraction: [Int: Double]
+    var speakerContacts: [Int: String] = [:]     // slot -> contact id
+    var speakerEmbeddings: [Int: [Float]] = [:]  // slot -> CAM++ voice embedding
     var segments: [TranscriptSegment]
+
+    init(
+        id: UUID, title: String? = nil, project: String? = nil, startedAt: Date, endedAt: Date?,
+        micEnabled: Bool, systemAudioEnabled: Bool, speakerNames: [Int: String], speakerMicFraction: [Int: Double],
+        speakerContacts: [Int: String] = [:], speakerEmbeddings: [Int: [Float]] = [:], segments: [TranscriptSegment]
+    ) {
+        self.id = id
+        self.title = title
+        self.project = project
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.micEnabled = micEnabled
+        self.systemAudioEnabled = systemAudioEnabled
+        self.speakerNames = speakerNames
+        self.speakerMicFraction = speakerMicFraction
+        self.speakerContacts = speakerContacts
+        self.speakerEmbeddings = speakerEmbeddings
+        self.segments = segments
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, project, startedAt, endedAt, micEnabled, systemAudioEnabled, speakerNames, speakerMicFraction
+        case speakerContacts, speakerEmbeddings, segments
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        project = try c.decodeIfPresent(String.self, forKey: .project)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        endedAt = try c.decodeIfPresent(Date.self, forKey: .endedAt)
+        micEnabled = try c.decode(Bool.self, forKey: .micEnabled)
+        systemAudioEnabled = try c.decode(Bool.self, forKey: .systemAudioEnabled)
+        speakerNames = try c.decodeIfPresent([Int: String].self, forKey: .speakerNames) ?? [:]
+        speakerMicFraction = try c.decodeIfPresent([Int: Double].self, forKey: .speakerMicFraction) ?? [:]
+        speakerContacts = try c.decodeIfPresent([Int: String].self, forKey: .speakerContacts) ?? [:]
+        speakerEmbeddings = try c.decodeIfPresent([Int: [Float]].self, forKey: .speakerEmbeddings) ?? [:]
+        segments = try c.decodeIfPresent([TranscriptSegment].self, forKey: .segments) ?? []
+    }
+
+    /// Names to display: linked contact name wins over the custom per-session name.
+    func effectiveNames(contactNames: [String: String]) -> [Int: String] {
+        var names = speakerNames
+        for (slot, cid) in speakerContacts {
+            if let n = contactNames[cid] { names[slot] = n }
+        }
+        return names
+    }
 }
 
 enum SpeakerLabel {
