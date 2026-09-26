@@ -9,6 +9,9 @@ struct SessionDetailView: View {
     @State private var document: SessionDocument?
     @State private var title = ""
     @State private var loadFailed = false
+    @State private var tab: Tab = .transcript
+
+    enum Tab: Hashable { case transcript, summary }
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -29,9 +32,15 @@ struct SessionDetailView: View {
                     header(doc)
                     Divider()
                     HSplitView {
-                        TranscriptListView(
-                            turns: doc.turns, names: doc.effectiveNames(contactNames: contactNames),
-                            emptyText: L("This session has no text."), autoScroll: false)
+                        Group {
+                            if tab == .summary {
+                                SummaryView(folder: summary.folder)
+                            } else {
+                                TranscriptListView(
+                                    turns: doc.turns, names: doc.effectiveNames(contactNames: contactNames),
+                                    emptyText: L("This session has no text."), autoScroll: false)
+                            }
+                        }
                         .frame(minWidth: 320)
                         SpeakersPanel(
                             rows: Set(doc.segments.compactMap(\.speaker)).sorted().map { slot in
@@ -84,6 +93,12 @@ struct SessionDetailView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Picker("", selection: $tab) {
+                Text(L("Transcript")).tag(Tab.transcript)
+                Text(L("Summary")).tag(Tab.summary)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 220)
             Menu {
                 Button(L("No project")) { move(to: nil) }
                 if !store.visibleProjects.isEmpty { Divider() }

@@ -5,6 +5,9 @@ enum AppInfo {
     static let name = "MeetAI"
     static let author = "Juan (@juannito) — freelance product designer & vibe coder"
     static let repositoryURL = URL(string: "https://github.com/juannito/openmeet")!
+    static let coffeeURL = URL(string: "https://buymeacoffee.com/juannito")!
+    static let bioEN = "Freelance product designer & vibe coder. I design digital products end to end and build them with AI as my copilot. If MeetAI helps you, buy me a coffee."
+    static let bioES = "Freelance product designer y vibe coder. Diseño productos digitales de punta a punta y los construyo con IA como copiloto. Si MeetAI te sirve, invitame un café."
     static var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
     }

@@ -4,6 +4,33 @@ import Foundation
 /// `MeetAI --selftest file.wav` — runs the live pipeline over a file as if it were streamed
 /// and prints the attributed transcript. Used to validate models and timing offline.
 enum SelfTest {
+    /// Runs the Ollama summarizer over a saved session and prints the minutes.
+    @MainActor
+    static func summarize(folder: URL, ollamaModel: String) async -> Int32 {
+        guard let doc = SessionStore.readDocument(at: folder) else {
+            print("[summarize] no transcript.json in \(folder.path)")
+            return 2
+        }
+        let transcript = PromptBuilder.transcriptText(doc, names: doc.speakerNames)
+        print("[summarize] \(doc.turns.count) turns, \(transcript.count) chars, model \(ollamaModel)")
+        let summarizer = OllamaSummarizer(baseURL: "http://localhost:11434", model: ollamaModel)
+        let request = SummaryRequest(
+            instructions: SummarySettings.defaultInstructions, transcript: transcript,
+            meetingTitle: doc.displayTitle, meetingDate: doc.startedAt)
+        let t0 = Date()
+        do {
+            let summary = try await summarizer.summarize(request)
+            print(String(format: "[summarize] done in %.1fs", Date().timeIntervalSince(t0)))
+            print(summary.markdown())
+            try SummaryService.write(summary, to: folder)
+            print("[summarize] written to \(folder.appendingPathComponent(SummaryService.markdownFile).path)")
+            return 0
+        } catch {
+            print("[summarize] ERROR: \(error.localizedDescription)")
+            return 3
+        }
+    }
+
     static func run(path: String) async -> Int32 {
         let url = URL(fileURLWithPath: path)
         print("[selftest] cargando modelos…")

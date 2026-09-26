@@ -10,6 +10,15 @@ if arguments.count >= 3, arguments[1] == "--selftest" {
         exit(code)
     }
     dispatchMain()
+} else if arguments.count >= 3, arguments[1] == "--summarize" {
+    // MeetAI --summarize <session folder> [ollama model]
+    let folder = URL(fileURLWithPath: arguments[2], isDirectory: true)
+    let model = arguments.count >= 4 ? arguments[3] : "llama3.2"
+    Task {
+        let code = await SelfTest.summarize(folder: folder, ollamaModel: model)
+        exit(code)
+    }
+    dispatchMain()
 } else {
     AppLog.write("launch \(Bundle.main.bundleIdentifier ?? "cli") \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] ?? "")")
     MeetAIApp.main()

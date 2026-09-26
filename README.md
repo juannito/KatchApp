@@ -9,6 +9,10 @@ Grabador de reuniones 100% local para macOS: apretás un botón, transcribe en v
 
 Requisitos: Apple Silicon, macOS 15+, Xcode 26 (para compilar). La primera vez descarga ~1 GB de modelos a `~/Library/Application Support/FluidAudio/Models`.
 
+## Autor
+
+**Juan (@juannito)** — Freelance product designer y vibe coder. Diseño productos digitales de punta a punta y los construyo con IA como copiloto. Si MeetAI te sirve, [invitame un café](https://buymeacoffee.com/juannito) ☕
+
 ## Compilar y correr
 
 ```bash
@@ -33,7 +37,8 @@ swift build && .build/debug/MeetAI
 7. Las sesiones guardadas quedan en la barra lateral (**Historial**). Al abrir una podés releer el transcript, renombrar hablantes, cambiar el título, copiar el Markdown, abrir el audio o mostrarla en Finder. Clic derecho para mandarla a la Papelera.
 8. **Ajustes** (⌘,): idioma (inglés por defecto, español), carpeta de sesiones y proyectos ocultos. Por defecto `~/Documents/MeetAI/<proyecto>/<fecha>/` con `transcript.md`, `transcript.json` y `audio.wav`.
 9. **Proyectos.** Al guardar elegís un proyecto (una subcarpeta) o creás uno nuevo. El filtro de carpeta en la barra lateral muestra un proyecto, los sin proyecto o todos. Un proyecto se puede **ocultar** (menú del filtro o Ajustes): desaparece de la barra y del historial hasta que activás "Mostrar proyectos ocultos", que se resetea en cada arranque. Pensado para compartir pantalla sin exponer otros proyectos.
-10. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). MeetAI guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
+10. **Resumen con LLM (opcional).** En Ajustes > Resumen elegís proveedor: **Ollama** (local; la app lista los modelos instalados y descarga el que elijas), **OpenAI-compatible** (OpenAI, LM Studio, OpenRouter, vLLM) o **Anthropic**. Las claves van al Llavero. Con "resumen automático" activado se genera al guardar; si no, cada sesión tiene un botón **Generar resumen** en la pestaña Resumen. Salida: resumen, decisiones, acciones con responsable y fecha, y seguimientos. Las instrucciones son editables; el formato es fijo. Queda en `summary.md` y `summary.json`.
+11. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). MeetAI guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
 
 ## Self-test sin UI
 

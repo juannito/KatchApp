@@ -6,6 +6,8 @@ struct MeetAIApp: App {
     @StateObject private var sessionStore: SessionStore
     @StateObject private var contacts: ContactStore
     @StateObject private var language = AppLanguage()
+    @StateObject private var summarySettings: SummarySettings
+    @StateObject private var summaryService: SummaryService
     @Environment(\.openWindow) private var openWindow
 
     init() {
@@ -18,6 +20,9 @@ struct MeetAIApp: App {
         let store = SessionStore()
         _sessionStore = StateObject(wrappedValue: store)
         _contacts = StateObject(wrappedValue: ContactStore(rootURL: store.rootURL))
+        let settings = SummarySettings()
+        _summarySettings = StateObject(wrappedValue: settings)
+        _summaryService = StateObject(wrappedValue: SummaryService(settings: settings))
     }
 
     var body: some Scene {
@@ -29,6 +34,8 @@ struct MeetAIApp: App {
                 .environmentObject(sessionStore)
                 .environmentObject(contacts)
                 .environmentObject(language)
+                .environmentObject(summarySettings)
+                .environmentObject(summaryService)
                 .frame(minWidth: 760, minHeight: 520)
                 .task {
                     NSApplication.shared.activate(ignoringOtherApps: true)
@@ -64,6 +71,7 @@ struct MeetAIApp: App {
                 .id(language.code)
                 .environmentObject(sessionStore)
                 .environmentObject(language)
+                .environmentObject(summarySettings)
         }
     }
 }

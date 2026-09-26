@@ -1,8 +1,25 @@
 import SwiftUI
 
 struct SettingsView: View {
+    var body: some View {
+        TabView {
+            GeneralSettingsView()
+                .tabItem { Label(L("General"), systemImage: "gearshape") }
+            SummarySettingsView()
+                .tabItem { Label(L("Summary"), systemImage: "text.badge.checkmark") }
+        }
+        .frame(width: 620)
+    }
+}
+
+struct GeneralSettingsView: View {
     @EnvironmentObject var store: SessionStore
     @EnvironmentObject var language: AppLanguage
+    @State private var newProjectName = ""
+
+    private func createProject() {
+        if store.createProject(newProjectName) != nil { newProjectName = "" }
+    }
 
     var body: some View {
         Form {
@@ -36,6 +53,12 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Section(L("Projects")) {
+                HStack {
+                    TextField(L("Project name"), text: $newProjectName)
+                        .onSubmit(createProject)
+                    Button(L("New project"), action: createProject)
+                        .disabled(newProjectName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
                 if store.projects.isEmpty {
                     Text(L("No projects yet. Create one from the save dialog."))
                         .font(.callout)
@@ -63,7 +86,154 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560)
         .padding(.vertical, 8)
+    }
+}
+
+struct SummarySettingsView: View {
+    @EnvironmentObject var settings: SummarySettings
+
+    var body: some View {
+        Form {
+            Section(L("Summary")) {
+                Picker(L("Provider"), selection: $settings.provider) {
+                    ForEach(SummaryProvider.allCases) { p in Text(p.title).tag(p) }
+                }
+                Toggle(L("Generate a summary automatically when a meeting is saved"), isOn: $settings.autoSummary)
+                    .disabled(settings.provider == .none)
+            }
+            switch settings.provider {
+            case .none:
+                EmptyView()
+            case .ollama:
+                Section("Ollama") {
+                    TextField(L("Server URL"), text: $settings.ollamaURL)
+                    TextField(L("Model"), text: $settings.ollamaModel)
+                    OllamaModelStatusView()
+                    Text(L("Ollama runs models on your Mac. Install it from ollama.com and pull a model, e.g. `ollama pull qwen3:8b`."))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text(L("Suggested: qwen3:8b (best quality on 16 GB+), qwen3:4b (lighter), llama3.2 (fastest)."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            case .openAI:
+                Section("OpenAI-compatible") {
+                    TextField(L("Base URL"), text: $settings.openAIBaseURL)
+                    TextField(L("Model"), text: $settings.openAIModel)
+                    SecureField(L("API key"), text: $settings.openAIKey)
+                    Text(L("Works with OpenAI, LM Studio (http://localhost:1234/v1), OpenRouter, vLLM and any compatible server. Keys are stored in the Keychain."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            case .anthropic:
+                Section("Anthropic") {
+                    TextField(L("Model"), text: $settings.anthropicModel)
+                    SecureField(L("API key"), text: $settings.anthropicKey)
+                    Text(L("Keys are stored in the macOS Keychain."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Section(L("Instructions")) {
+                TextEditor(text: $settings.instructions)
+                    .font(.body)
+                    .frame(minHeight: 140)
+                HStack {
+                    Text(L("Instructions tell the model what the minutes should contain. The output format (summary, decisions, action items with owner and due date, follow-ups) is fixed."))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(L("Reset to default")) { settings.resetInstructions() }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.vertical, 8)
+    }
+}
+
+
+/// Shows whether the configured Ollama model is installed and offers to download it.
+struct OllamaModelStatusView: View {
+    @EnvironmentObject var settings: SummarySettings
+    @State private var installed: [String]? = nil
+    @State private var unreachable = false
+    @State private var downloading = false
+    @State private var progress = 0.0
+    @State private var status = ""
+    @State private var error: String?
+
+    private var model: String { settings.ollamaModel.trimmingCharacters(in: .whitespaces) }
+    private var isInstalled: Bool {
+        guard let installed else { return false }
+        return installed.contains(model) || installed.contains(model + ":latest")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                if unreachable {
+                    Label(L("Ollama is not running or unreachable at this URL."), systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                } else if installed == nil {
+                    ProgressView().controlSize(.small)
+                } else if downloading {
+                    ProgressView(value: progress).frame(width: 160)
+                    Text(L("Downloading %@… %d%%", model, Int(progress * 100))).font(.callout)
+                } else if isInstalled {
+                    Label(L("Model “%@” is installed.", model), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                } else if !model.isEmpty {
+                    Label(L("Model “%@” is not installed.", model), systemImage: "arrow.down.circle").foregroundStyle(.secondary)
+                    Button(L("Download")) { download() }
+                }
+                Spacer()
+                Button(L("Refresh")) { refresh() }.disabled(downloading)
+            }
+            if let error {
+                Text(L("Download failed: %@", error)).font(.caption).foregroundStyle(.red)
+            }
+            if let installed, !installed.isEmpty {
+                Picker(L("Installed models"), selection: $settings.ollamaModel) {
+                    if !isInstalled { Text(model).tag(model) }
+                    ForEach(installed, id: \.self) { m in Text(m).tag(m) }
+                }
+            }
+        }
+        .onAppear { refresh() }
+        .onChange(of: settings.ollamaURL) { _, _ in refresh() }
+    }
+
+    private func refresh() {
+        let client = OllamaClient(baseURL: settings.ollamaURL)
+        Task {
+            do {
+                let list = try await client.installedModels()
+                installed = list
+                unreachable = false
+            } catch {
+                installed = []
+                unreachable = true
+            }
+        }
+    }
+
+    private func download() {
+        let client = OllamaClient(baseURL: settings.ollamaURL)
+        let name = model
+        downloading = true
+        progress = 0
+        error = nil
+        Task {
+            do {
+                try await client.pull(model: name) { p, s in
+                    Task { @MainActor in
+                        progress = p
+                        status = s
+                    }
+                }
+                AppLog.write("ollama pulled \(name)")
+            } catch {
+                self.error = error.localizedDescription
+                AppLog.write("ollama pull failed \(name): \(error)")
+            }
+            downloading = false
+            refresh()
+        }
     }
 }

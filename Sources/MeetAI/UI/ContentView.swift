@@ -11,6 +11,7 @@ struct ContentView: View {
     @EnvironmentObject var session: RecordingSession
     @EnvironmentObject var store: SessionStore
     @EnvironmentObject var contacts: ContactStore
+    @EnvironmentObject var summaryService: SummaryService
     @State private var selection: SidebarSelection? = .live
 
     var body: some View {
@@ -46,6 +47,8 @@ struct ContentView: View {
                 if let folder = session.sessionFolder {
                     let id = project.map { "\($0)/\(folder.lastPathComponent)" } ?? folder.lastPathComponent
                     selection = .session(id)
+                    let names = Dictionary(uniqueKeysWithValues: contacts.contacts.map { ($0.id, $0.name) })
+                    summaryService.generateIfAuto(folder: folder, contactNames: names)
                 }
             } onDiscard: {
                 session.discard()
@@ -65,6 +68,8 @@ struct SessionsSidebar: View {
     @EnvironmentObject var contacts: ContactStore
     @Binding var selection: SidebarSelection?
     @State private var pendingDelete: SessionSummary?
+    @State private var showNewProject = false
+    @State private var newProjectName = ""
     /// nil = all projects, .some(nil) = sessions without project, .some(name) = one project
     @State private var projectFilter: String?? = nil
 
@@ -157,6 +162,7 @@ struct SessionsSidebar: View {
                     }
                     .pickerStyle(.inline)
                     Divider()
+                    Button(L("New project…")) { showNewProject = true }
                     Toggle(L("Show hidden projects"), isOn: $store.showHidden)
                     if !store.projects.isEmpty {
                         Divider()
@@ -177,6 +183,14 @@ struct SessionsSidebar: View {
                 Button { store.reload(); contacts.reload() } label: { Image(systemName: "arrow.clockwise") }
                     .help(L("Reload history"))
             }
+        }
+        .alert(L("New project"), isPresented: $showNewProject) {
+            TextField(L("Project name"), text: $newProjectName)
+            Button(L("Create")) {
+                if let created = store.createProject(newProjectName) { projectFilter = .some(.some(created)) }
+                newProjectName = ""
+            }
+            Button(L("Cancel"), role: .cancel) { newProjectName = "" }
         }
         .onChange(of: store.showHidden) { _, show in
             if !show, case .some(.some(let p)) = projectFilter, store.isHidden(p) { projectFilter = nil }
