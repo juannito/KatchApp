@@ -349,7 +349,7 @@ struct LiveView: View {
         switch session.status {
         case .recording: return L("Recording")
         case .finishing: return L("Finishing…")
-        case .analyzing: return L("Analyzing voices…")
+        case .analyzing: return L("Refining speakers…")
         case .idle: return L("Ready")
         }
     }

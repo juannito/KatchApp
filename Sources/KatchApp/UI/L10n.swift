@@ -238,6 +238,10 @@ enum L10n {
             "Log folder": "Carpeta de logs",
             "Open": "Abrir",
             "Acknowledgments": "Agradecimientos",
+            "Refining speakers…": "Refinando hablantes…",
+            "Refine speakers when the recording stops": "Refinar hablantes al detener la grabación",
+            "Runs a second, more accurate diarization pass over the whole recording and re-assigns each word. Takes a few seconds after you press Stop; the first time it downloads an extra model (~200 MB).":
+                "Corre una segunda pasada de diarización, más precisa, sobre toda la grabación y reasigna cada palabra. Tarda unos segundos después de Detener; la primera vez descarga un modelo extra (~200 MB).",
             "Size on disk (audio, transcript, summary)": "Tamaño en disco (audio, transcript, resumen)",
             "Delete this meeting and all its files": "Eliminar esta reunión y todos sus archivos",
             "Delete this meeting permanently?": "¿Eliminar esta reunión definitivamente?",

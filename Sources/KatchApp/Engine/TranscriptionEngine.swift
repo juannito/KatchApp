@@ -431,6 +431,11 @@ actor TranscriptionEngine {
         return out
     }
 
+    /// Streaming diarizer output (10 ms frames × numSpeakers) for the offline re-pass mapping.
+    func diarizationProbabilities() -> (probs: [Float], frames: Int, numSpeakers: Int) {
+        (probs, diarFrames, numSpeakers)
+    }
+
     // MARK: - Diagnostics
 
     func diarizationSegments() -> [Nemotron3Segment] {

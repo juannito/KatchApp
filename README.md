@@ -88,7 +88,7 @@ doc/         model and pipeline research
 - At most 8 speakers (model limit). Extra voices are merged into existing ones.
 - Without headphones the microphone re-captures the remote side; there is no echo cancellation yet. Headphones avoid it.
 - Diarizer preset `low` (1 s latency, NVIDIA's reference streaming profile). Override with the `MEETAI_DIAR_PRESET` environment variable (`fast32`, `fast128`, `verylow`, `ultra`…).
-- The diarizer needs ~0.5–1 s to "discover" a new speaker, so someone's very first word can stick to the previous speaker. An offline re-pass at session end would fix it (pending).
+- The streaming diarizer needs ~0.5–1 s to "discover" a new speaker, so someone's very first word can stick to the previous speaker. That is why, when you press Stop, KatchApp runs a second offline diarization pass over the whole recording (Nemotron 3 offline preset, best accuracy) and re-attributes every word while keeping the live labels and names. It takes about a second per minute of audio; turn it off in Settings > Meetings if you prefer an instant stop.
 - First launch: downloads ~700 MB and compiles the models for the Neural Engine (1–2 min). Later launches take well under a second thanks to the CoreML cache.
 - Diagnostic log: `~/Library/Logs/KatchApp/app.log`.
 - The voice-suggestion threshold (`ContactStore.suggestThreshold`, 0.70) was calibrated with synthetic voices; real voices may warrant a lower value. Very similar TTS voices can be merged by the diarizer.

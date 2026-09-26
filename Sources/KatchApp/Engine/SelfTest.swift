@@ -109,6 +109,22 @@ enum SelfTest {
             let name = SpeakerLabel.name(for: turn.speaker, names: [:])
             print(String(format: "  [%@ – %@] %@: %@", TimeFormat.clock(turn.start), TimeFormat.clock(turn.end), name, turn.text))
         }
+        // Offline re-pass: compare against the live attribution.
+        do {
+            let live = await engine.diarizationProbabilities()
+            let refiner = SpeakerRefiner()
+            let t1 = Date()
+            let r = try await refiner.refine(
+                audio: samples, segments: segments, liveProbs: live.probs, liveFrames: live.frames, numSpeakers: live.numSpeakers)
+            print(String(format: "[selftest] refinamiento offline en %.1fs: %d/%d palabras cambiaron, %d hablantes nuevos", Date().timeIntervalSince(t1), r.changedWords, r.totalWords, r.newSpeakers))
+            print("[selftest] transcripción refinada (\(r.segments.count) segmentos):")
+            for seg in r.segments {
+                print("  [\(TimeFormat.clock(seg.start)) – \(TimeFormat.clock(seg.end))] \(SpeakerLabel.name(for: seg.speaker, names: [:])): \(seg.text)")
+            }
+        } catch {
+            print("[selftest] refinamiento offline falló: \(error)")
+        }
+
         // Voice fingerprint sanity check: same speaker (two halves) should score high,
         // different speakers low.
         if let fp = models.fingerprinter {

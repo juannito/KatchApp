@@ -82,7 +82,7 @@ doc/         investigación de modelos y pipeline
 - Máximo 8 hablantes (límite del modelo). Si hay más, se fusionan en los existentes.
 - Con parlantes (sin auriculares) el micrófono recaptura a los remotos; no hay cancelación de eco todavía. Con auriculares no hay problema.
 - Preset de diarización `low` (1 s de latencia, perfil de referencia de NVIDIA). Se puede cambiar con la variable de entorno `MEETAI_DIAR_PRESET` (`fast32`, `fast128`, `verylow`, `ultra`…).
-- El diarizador tarda ~0.5–1 s en "descubrir" a un hablante nuevo: la primera palabra de alguien que habla por primera vez puede quedar pegada al hablante anterior. Un re-pase offline al cerrar la sesión lo corregiría (pendiente).
+- El diarizador en streaming tarda ~0.5–1 s en "descubrir" a un hablante nuevo: la primera palabra de alguien puede quedar pegada al hablante anterior. Por eso, al apretar Detener, KatchApp corre una segunda pasada offline sobre toda la grabación (preset offline de Nemotron 3, la más precisa) y reasigna cada palabra manteniendo etiquetas y nombres. Tarda alrededor de un segundo por minuto de audio; se puede apagar en Ajustes > Reuniones.
 - Primer arranque: descarga ~700 MB y compila los modelos para el Neural Engine (1–2 min). Arranques siguientes: bastante más rápido gracias a la caché de CoreML del bundle.
 - Log de diagnóstico: `~/Library/Logs/KatchApp/app.log`.
 - El umbral de sugerencia de voz (`ContactStore.suggestThreshold`, 0.70) está calibrado con voces sintéticas; con voces reales puede convenir bajarlo. Con voces de TTS muy parecidas el diarizador puede fusionar hablantes.

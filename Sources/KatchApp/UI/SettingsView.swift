@@ -258,6 +258,13 @@ struct MeetingsSettingsView: View {
                 Text(L("With “only the meeting app”, KatchApp records just the audio of the meeting app it finds when you press Record (Zoom, Teams, your browser…). If none is running it records everything."))
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section(L("Speakers")) {
+                Toggle(L("Refine speakers when the recording stops"), isOn: Binding(
+                    get: { UserDefaults.standard.object(forKey: RecordingSession.refineDefaultsKey) as? Bool ?? true },
+                    set: { UserDefaults.standard.set($0, forKey: RecordingSession.refineDefaultsKey) }))
+                Text(L("Runs a second, more accurate diarization pass over the whole recording and re-assigns each word. Takes a few seconds after you press Stop; the first time it downloads an extra model (~200 MB)."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section(L("Meeting detection")) {
                 Toggle(L("Ask to record when a meeting app starts using the microphone"), isOn: $registry.autoDetect)
                 Toggle(L("Open KatchApp at login"), isOn: Binding(get: { launchAtLogin }, set: { registry.launchAtLogin = $0; launchAtLogin = registry.launchAtLogin }))

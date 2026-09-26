@@ -59,6 +59,9 @@ final class RecordingSession: ObservableObject {
     private weak var meetingApps: MeetingAppRegistry?
     @Published private(set) var platformName: String?
     private var platformTimer: Timer?
+    private let refiner = SpeakerRefiner()
+    static let refineDefaultsKey = "refineSpeakersOnStop"
+    var refineOnStop: Bool { UserDefaults.standard.object(forKey: Self.refineDefaultsKey) as? Bool ?? true }
     private var engine: TranscriptionEngine?
     private var mic: MicCapture?
     private var tap: SystemAudioTap?
@@ -80,6 +83,9 @@ final class RecordingSession: ObservableObject {
         self.store = store
         self.contacts = contacts
         self.meetingApps = meetingApps
+        if refineOnStop {
+            Task.detached(priority: .utility) { [refiner] in await refiner.preload() }
+        }
     }
 
     /// Looks for a meeting app with audio and tags the session with it (first hit wins).
@@ -258,6 +264,21 @@ final class RecordingSession: ObservableObject {
         AppLog.write("recording stopped: \(segments.count) segments, \(speakerSlots.count) speakers")
 
         status = .analyzing
+        if refineOnStop, !segments.isEmpty {
+            let live = await engine.diarizationProbabilities()
+            let audioURL = folder(for: sessionFolder)
+            if let audio = try? AudioConverter().resampleAudioFile(audioURL) {
+                do {
+                    let r = try await refiner.refine(
+                        audio: audio, segments: segments, liveProbs: live.probs, liveFrames: live.frames, numSpeakers: live.numSpeakers)
+                    segments = r.segments
+                    doc.segments = segments
+                    autosave()
+                } catch {
+                    AppLog.write("speaker refinement failed: \(error)")
+                }
+            }
+        }
         var embeddings = await computeEmbeddings(ranges: ranges)
         for (slot, e) in liveEmbeddings where embeddings[slot] == nil { embeddings[slot] = e }
         doc.speakerEmbeddings = embeddings
@@ -271,6 +292,10 @@ final class RecordingSession: ObservableObject {
         speakerSuggestions = suggestions
         status = .idle
         pendingSave = doc
+    }
+
+    private func folder(for sessionFolder: URL?) -> URL {
+        (sessionFolder ?? URL(fileURLWithPath: "/dev/null")).appendingPathComponent(SessionStore.audioFile)
     }
 
     private func computeEmbeddings(ranges: [Int: [TimeRange]]) async -> [Int: [Float]] {
