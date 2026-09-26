@@ -11,6 +11,8 @@ final class RecordingSession: ObservableObject {
         case recording
         case finishing
         case analyzing
+        /// Offline transcription of an audio file; `progress` is 0…1.
+        case importing(progress: Double)
     }
 
     @Published var status: Status = .idle
@@ -75,6 +77,12 @@ final class RecordingSession: ObservableObject {
     private var document: SessionDocument?
 
     var isRecording: Bool { status == .recording }
+    var isImporting: Bool {
+        if case .importing = status { return true }
+        return false
+    }
+    /// The live view accepts a dropped/chosen audio file only in this state.
+    var canImport: Bool { status == .idle && segments.isEmpty && models != nil }
     var speakerSlots: [Int] { Set(segments.compactMap(\.speaker)).sorted() }
     var voiceRecognitionAvailable: Bool { models?.fingerprinter != nil }
 
@@ -253,6 +261,102 @@ final class RecordingSession: ObservableObject {
         chunkContinuation?.finish()
         await feederTask?.value
         await eventTask?.value
+        await finishSession(engine: engine, log: "recording stopped:")
+    }
+
+    // MARK: - Import
+
+    /// Runs an audio file through the live pipeline (offline, faster than real time) and ends
+    /// exactly like a recording: save sheet, speaker refinement and voice embeddings.
+    func importAudio(url: URL) async {
+        guard status == .idle, let models, let store else { return }
+        let fileName = url.lastPathComponent
+        message = nil
+        permissionHelp = nil
+        pendingSave = nil
+        speakerSuggestions = [:]
+        liveLinks = [:]
+        liveEmbeddings = [:]
+        segments = []
+        speakerNames = [:]
+        speakerMicFraction = [:]
+        elapsed = 0
+        startedAt = Date()
+        status = .importing(progress: 0)
+        AppLog.write("import started: \(fileName)")
+
+        // Decode off the main actor: a long file takes a while to resample.
+        let samples: [Float]
+        do {
+            samples = try await Task.detached(priority: .userInitiated) {
+                try AudioConverter().resampleAudioFile(url)
+            }.value
+        } catch {
+            AppLog.write("import failed to decode \(fileName): \(error)")
+            message = L("Could not read the audio file: %@", error.localizedDescription)
+            status = .idle
+            return
+        }
+
+        let folder: URL
+        do {
+            folder = try store.makeSessionFolder(date: startedAt)
+            sessionFolder = folder
+            wav = try WavWriter(url: folder.appendingPathComponent(SessionStore.audioFile))
+        } catch {
+            message = L("Could not create the session folder: %@", error.localizedDescription)
+            status = .idle
+            return
+        }
+
+        var doc = SessionDocument(
+            id: UUID(), startedAt: startedAt, endedAt: nil, micEnabled: false,
+            systemAudioEnabled: true, speakerNames: [:], speakerMicFraction: [:], segments: [])
+        doc.title = url.deletingPathExtension().lastPathComponent
+        document = doc
+        platformName = nil
+
+        let engine = TranscriptionEngine(models: models)
+        self.engine = engine
+        eventTask = Task { [weak self] in
+            for await event in engine.events {
+                self?.handle(event)
+            }
+        }
+
+        let total = samples.count
+        let frame = MixBus.frame
+        let sampleRate = 16000
+        var i = 0
+        var nextProgress = 0
+        while i < total {
+            let end = min(total, i + frame)
+            let slice = Array(samples[i..<end])
+            wav?.write(slice)
+            var chunk = slice
+            if chunk.count < frame { chunk.append(contentsOf: [Float](repeating: 0, count: frame - chunk.count)) }
+            var energy: Float = 0
+            for v in chunk { energy += v * v }
+            let rms = (energy / Float(frame)).squareRoot()
+            await engine.push(MixedChunk(samples: chunk, micRMS: 0, sysRMS: rms))
+            i = end
+            if i >= nextProgress {
+                nextProgress += sampleRate
+                elapsed = Double(i) / Double(sampleRate)
+                status = .importing(progress: total > 0 ? Double(i) / Double(total) : 1)
+            }
+        }
+        elapsed = Double(total) / Double(sampleRate)
+        status = .importing(progress: 1)
+        await engine.finish()
+        await eventTask?.value
+        await finishSession(engine: engine, log: "import finished (\(fileName)):")
+    }
+
+    /// Shared tail of `stop()` and `importAudio(url:)`: the engine has been finished and its
+    /// events drained. Persists the session, refines speakers, computes embeddings and hands
+    /// the document to the save sheet.
+    private func finishSession(engine: TranscriptionEngine, log: String) async {
         let ranges = await engine.exclusiveSpeechRanges()
         await wav?.finish()
         cleanupCapture()
@@ -261,7 +365,7 @@ final class RecordingSession: ObservableObject {
         doc.endedAt = Date()
         document = doc
         autosave()
-        AppLog.write("recording stopped: \(segments.count) segments, \(speakerSlots.count) speakers")
+        AppLog.write("\(log) \(segments.count) segments, \(speakerSlots.count) speakers")
 
         status = .analyzing
         if refineOnStop, !segments.isEmpty {

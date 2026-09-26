@@ -46,7 +46,7 @@ scripts/bump-version.sh X.Y.Z             # bump de versión
 
 1. Esperá a que el pie de la ventana diga "Modelos listos".
 2. Elegí fuentes: **Micrófono** (vos) y/o **Audio del sistema** (Zoom, Meet, Teams, navegador).
-3. **Grabar reunión** (⌘R). macOS pide permiso de micrófono y de "Grabación de audio del sistema" la primera vez.
+3. **Grabar reunión** (⌘R), o soltá un archivo de audio en el área vacía (o hacé clic) para transcribir una grabación que ya tengas. macOS pide permiso de micrófono y de "Grabación de audio del sistema" la primera vez.
 4. El texto aparece unos segundos después de cada pausa; el hablante se asigna ~3 s después.
 5. Renombrá hablantes en el panel derecho. El ícono 🎤 marca la voz que entra por tu micrófono.
 6. **Detener**. Aparece el diálogo "Guardar reunión": ponele un título y guardá, o descartá (la carpeta va a la Papelera).

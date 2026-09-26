@@ -2,6 +2,12 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.10.0 — 2026-09-26
+
+- Import an audio file instead of recording: drop it on the empty live view, click the area, or use "Import audio…" in the footer. It runs the same pipeline (transcript, live speakers, offline refinement, voice suggestions) and ends in the same save sheet. `KatchApp --import <file>` does it headlessly.
+- Echo ducking: while system audio clearly dominates, the microphone contributes only a whisper, so remote voices re-captured by the mic (no headphones) no longer show up as extra speakers.
+- Fix: after saving, "New meeting" shows an empty view again instead of the previous transcript.
+
 ## 0.9.2 — 2026-09-26
 
 - Theme toggle back in the window toolbar. New-project and show-hidden buttons live in the History header inside the sidebar, so nothing can overflow into a ">>" menu.

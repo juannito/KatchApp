@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum SidebarSelection: Hashable {
     case live
@@ -132,9 +133,9 @@ struct SessionsSidebar: View {
         List(selection: $selection) {
             Section {
                 Label {
-                    Text(session.isRecording ? L("Recording…") : L("New meeting"))
+                    Text(session.isRecording ? L("Recording…") : session.isImporting ? L("Importing…") : L("New meeting"))
                 } icon: {
-                    Image(systemName: session.isRecording ? "record.circle.fill" : "mic.circle")
+                    Image(systemName: session.isRecording ? "record.circle.fill" : session.isImporting ? "square.and.arrow.down" : "mic.circle")
                         .foregroundStyle(session.isRecording ? .red : .accentColor)
                 }
                 .tag(SidebarSelection.live)
@@ -318,19 +319,18 @@ struct AvatarView: View {
 struct LiveView: View {
     @EnvironmentObject var modelStore: ModelStore
     @EnvironmentObject var session: RecordingSession
+    @State private var dropTargeted = false
+
+    /// Drop / click-to-pick only make sense on an empty, idle view with models loaded.
+    private var acceptsImport: Bool { session.canImport && modelStore.isReady }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
             HSplitView {
-                TranscriptListView(
-                    turns: SessionDocument.mergeTurns(session.segments),
-                    names: session.liveNames,
-                    emptyText: session.isRecording ? L("Listening…") : L("Press “Record meeting” to start."),
-                    emptyDetail: nil
-                )
-                .frame(minWidth: 320)
+                transcriptArea
+                    .frame(minWidth: 320)
                 LiveSpeakersPanel()
                     .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
             }
@@ -340,11 +340,67 @@ struct LiveView: View {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
+    private var emptyText: String {
+        switch session.status {
+        case .recording: return L("Listening…")
+        case .importing: return L("Importing…")
+        default: return L("Press “Record meeting” or drop an audio file here")
+        }
+    }
+
+    private var transcriptArea: some View {
+        TranscriptListView(
+            turns: SessionDocument.mergeTurns(session.segments),
+            names: session.liveNames,
+            emptyText: emptyText,
+            emptyDetail: acceptsImport ? L("Click to choose a file") : nil
+        )
+        .contentShape(Rectangle())
+        // Only the empty, idle view is clickable; with a transcript, rows keep their own gestures.
+        .gesture(TapGesture().onEnded { pickAudioFile() }, including: acceptsImport ? .all : .subviews)
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+                .foregroundStyle(Color.accentColor)
+                .padding(8)
+                .opacity(dropTargeted && acceptsImport ? 1 : 0)
+                .allowsHitTesting(false)
+        }
+        .background(Color.accentColor.opacity(dropTargeted && acceptsImport ? 0.06 : 0))
+        .animation(.easeInOut(duration: 0.15), value: dropTargeted)
+        .dropDestination(for: URL.self) { urls, _ in
+            guard acceptsImport, let url = urls.first(where: Self.isAudioFile) else { return false }
+            Task { await session.importAudio(url: url) }
+            return true
+        } isTargeted: { dropTargeted = $0 }
+    }
+
+    static let importTypes: [UTType] = [.audio, .movie]
+
+    static func isAudioFile(_ url: URL) -> Bool {
+        guard url.isFileURL, let type = UTType(filenameExtension: url.pathExtension) else { return false }
+        return importTypes.contains { type.conforms(to: $0) }
+    }
+
+    private func pickAudioFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = Self.importTypes
+        panel.prompt = L("Import")
+        panel.message = L("Choose an audio file to transcribe")
+        if panel.runModal() == .OK, let url = panel.url {
+            Task { await session.importAudio(url: url) }
+        }
+    }
+
     private var statusText: String {
         switch session.status {
         case .recording: return L("Recording")
         case .finishing: return L("Finishing…")
         case .analyzing: return L("Refining speakers…")
+        case .importing(let progress): return L("Importing… %d%%", Int((progress * 100).rounded()))
         case .idle: return L("Ready")
         }
     }
@@ -356,7 +412,7 @@ struct LiveView: View {
                 Text(statusText).font(.headline)
                 Text(TimeFormat.clock(session.elapsed))
                     .font(.system(.title2, design: .monospaced))
-                    .foregroundStyle(session.isRecording ? .primary : .secondary)
+                    .foregroundStyle(session.isRecording || session.isImporting ? .primary : .secondary)
                 if let platform = session.platformName {
                     Label(platform, systemImage: "video").font(.caption).foregroundStyle(.secondary)
                 }
@@ -367,7 +423,7 @@ struct LiveView: View {
                 Toggle(L("System audio (Zoom, Meet, Teams…)"), isOn: $session.systemAudioEnabled)
             }
             .toggleStyle(.checkbox)
-            .disabled(session.isRecording)
+            .disabled(session.isRecording || session.isImporting)
             LevelMeters()
         }
         .padding(16)
@@ -386,6 +442,8 @@ struct LiveView: View {
                     Button(L("Open System Settings")) { session.openPermissionSettings() }
                 }
             }
+            Button(L("Import audio…")) { pickAudioFile() }
+                .disabled(!acceptsImport)
             Button(L("Copy transcript")) { session.copyTranscript() }
                 .disabled(session.segments.isEmpty)
             Button(L("Open sessions folder")) { session.revealSessionFolder() }
@@ -611,7 +669,7 @@ struct RecordButton: View {
         .buttonStyle(.borderedProminent)
         .tint(session.isRecording ? .red : .accentColor)
         .controlSize(.large)
-        .disabled(!modelStore.isReady || session.status == .finishing || session.status == .analyzing)
+        .disabled(!modelStore.isReady || (session.status != .idle && session.status != .recording))
         .keyboardShortcut("r", modifiers: [.command])
     }
 }

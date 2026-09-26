@@ -48,7 +48,7 @@ scripts/bump-version.sh X.Y.Z             # bump the version
 
 1. Wait until the footer says "Models ready".
 2. Pick your sources: **Microphone** (you) and/or **System audio** (Zoom, Meet, Teams, browser).
-3. **Record meeting** (⌘R). macOS asks for Microphone and "System Audio Recording" the first time.
+3. **Record meeting** (⌘R), or drop an audio file on the empty area (or click it) to transcribe a recording you already have. macOS asks for Microphone and "System Audio Recording" the first time.
 4. Text shows up a few seconds after each pause; the speaker is assigned about a second later. While recording, known voices are suggested in the Speakers panel ("Looks like X (85%)") with a Confirm button.
 5. Rename speakers in the right panel. The 🎤 icon marks the voice coming through your microphone.
 6. **Stop.** The "Save meeting" sheet appears: give it a title, pick a project, link speakers to contacts (or create them), then Save. Discard sends the folder to the Trash.
@@ -67,6 +67,7 @@ scripts/bump-version.sh X.Y.Z             # bump the version
 scripts/make-test-audio.sh /tmp/dialog.wav        # synthetic two-voice dialog
 .build/debug/KatchApp --selftest /tmp/dialog.wav   # runs the full pipeline and prints the result
 .build/debug/KatchApp --audio-processes            # lists processes Core Audio knows about
+.build/debug/KatchApp --import <audio file>        # imports a file headlessly (creates a session)
 .build/debug/KatchApp --summarize <session folder> [ollama model]
 ```
 
