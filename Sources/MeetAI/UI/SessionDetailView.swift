@@ -1,9 +1,11 @@
+import FluidAudio
 import SwiftUI
 
 /// A saved session: transcript, speaker renaming/linking, title and project, persisted to disk.
 struct SessionDetailView: View {
     @EnvironmentObject var store: SessionStore
     @EnvironmentObject var contacts: ContactStore
+    @EnvironmentObject var modelStore: ModelStore
     let summary: SessionSummary
     @Binding var selection: SidebarSelection?
     @State private var document: SessionDocument?
@@ -55,12 +57,10 @@ struct SessionDetailView: View {
                                 document?.speakerNames[slot] = name
                                 persist()
                             },
-                            onLink: { slot, contactID in
-                                document?.speakerContacts[slot] = contactID
-                                if let contactID, let e = document?.speakerEmbeddings[slot] {
-                                    contacts.enroll(contactID, embedding: e)
-                                }
-                                persist()
+                            onLink: { slot, contactID in link(slot: slot, to: contactID) },
+                            onCreateContact: { slot, name in
+                                let c = contacts.create(name: name)
+                                link(slot: slot, to: c.id)
                             }
                         )
                         .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
@@ -146,6 +146,35 @@ struct SessionDetailView: View {
     private func persist() {
         guard let doc = document else { return }
         store.save(doc, to: summary.folder)
+    }
+
+    /// Links a speaker slot to a contact and enrolls its voice, computing the fingerprint from
+    /// audio.wav when the session predates voice recognition.
+    private func link(slot: Int, to contactID: String?) {
+        document?.speakerContacts[slot] = contactID
+        persist()
+        guard let contactID else { return }
+        if let e = document?.speakerEmbeddings[slot] {
+            contacts.enroll(contactID, embedding: e)
+            return
+        }
+        guard let fp = modelStore.models?.fingerprinter, let doc = document else { return }
+        let ranges = doc.speechRanges(for: slot)
+        guard !ranges.isEmpty else { return }
+        let audioURL = summary.folder.appendingPathComponent(SessionStore.audioFile)
+        Task {
+            guard let audio = try? AudioConverter().resampleAudioFile(audioURL) else { return }
+            do {
+                if let e = try await fp.embed(sessionAudio: audio, ranges: ranges) {
+                    document?.speakerEmbeddings[slot] = e
+                    contacts.enroll(contactID, embedding: e)
+                    persist()
+                    AppLog.write("voice fingerprint computed from transcript ranges for slot \(slot) (\(ranges.count) ranges)")
+                }
+            } catch {
+                AppLog.write("on-demand fingerprint failed: \(error)")
+            }
+        }
     }
 
     private func move(to project: String?) {

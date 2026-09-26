@@ -81,6 +81,18 @@ struct SessionDocument: Codable {
         segments = try c.decodeIfPresent([TranscriptSegment].self, forKey: .segments) ?? []
     }
 
+    /// Time ranges where only this speaker talks, derived from the transcript segments.
+    /// Used to compute a voice fingerprint for sessions recorded without one.
+    func speechRanges(for slot: Int, minDuration: Double = 0.8) -> [TimeRange] {
+        let mine = segments.filter { $0.speaker == slot && $0.attributed }
+        let others = segments.filter { $0.speaker != slot && $0.attributed }
+        return mine.compactMap { seg in
+            let overlaps = others.contains { $0.start < seg.end && seg.start < $0.end }
+            guard !overlaps, seg.end - seg.start >= minDuration else { return nil }
+            return TimeRange(start: seg.start, end: seg.end)
+        }
+    }
+
     /// Names to display: linked contact name wins over the custom per-session name.
     func effectiveNames(contactNames: [String: String]) -> [Int: String] {
         var names = speakerNames

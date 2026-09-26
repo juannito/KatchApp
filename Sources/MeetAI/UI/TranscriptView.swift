@@ -91,6 +91,7 @@ struct SpeakersPanel: View {
     let contacts: [Contact]
     let onRename: (Int, String) -> Void
     let onLink: ((Int, String?) -> Void)?
+    var onCreateContact: ((Int, String) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -101,7 +102,11 @@ struct SpeakersPanel: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(rows) { row in
-                SpeakerRow(row: row, contacts: contacts, onRename: { onRename(row.slot, $0) }, onLink: onLink.map { link in { link(row.slot, $0) } })
+                SpeakerRow(
+                    row: row, contacts: contacts,
+                    onRename: { onRename(row.slot, $0) },
+                    onLink: onLink.map { link in { link(row.slot, $0) } },
+                    onCreateContact: onCreateContact.map { create in { create(row.slot, $0) } })
             }
             Spacer()
             Text(L("Click a name to rename it and press Enter. Saved to transcript.md and transcript.json."))
@@ -119,6 +124,7 @@ struct SpeakerRow: View {
     let contacts: [Contact]
     let onRename: (String) -> Void
     let onLink: ((String?) -> Void)?
+    var onCreateContact: ((String) -> Void)? = nil
     @State private var draft = ""
 
     var body: some View {
@@ -145,8 +151,16 @@ struct SpeakerRow: View {
                 }
                 if let onLink {
                     Menu {
-                        Button(L("No contact")) { onLink(nil) }
-                        if !contacts.isEmpty { Divider() }
+                        if row.contact != nil {
+                            Button(L("No contact")) { onLink(nil) }
+                            Divider()
+                        }
+                        if let onCreateContact, row.contact == nil {
+                            let proposed = draft.trimmingCharacters(in: .whitespaces).isEmpty
+                                ? SpeakerLabel.defaultName(for: row.slot) : draft.trimmingCharacters(in: .whitespaces)
+                            Button(L("Create contact “%@”", proposed)) { onCreateContact(proposed) }
+                            if !contacts.isEmpty { Divider() }
+                        }
                         ForEach(contacts) { c in
                             Button(c.name) { onLink(c.id) }
                         }
