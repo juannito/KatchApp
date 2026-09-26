@@ -218,6 +218,7 @@ enum L10n {
             "Due": "Fecha",
             "Buy me a coffee ☕": "Invitame un café ☕",
             "This is me": "Este soy yo",
+            "Open System Settings": "Abrir Ajustes del Sistema",
             "me": "yo",
             "This voice comes through your microphone. Is it you (%@)?": "Esta voz entra por tu micrófono. ¿Sos vos (%@)?",
             "Mark your own contact as “This is me” so meetings can suggest you automatically.": "Marcá tu propio contacto como “Este soy yo” para que las reuniones te sugieran automáticamente.",

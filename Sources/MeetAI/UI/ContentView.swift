@@ -329,6 +329,9 @@ struct LiveView: View {
                     .font(.callout)
                     .foregroundStyle(.orange)
                     .lineLimit(2)
+                if session.permissionHelp != nil {
+                    Button(L("Open System Settings")) { session.openPermissionSettings() }
+                }
             }
             Button(L("Copy transcript")) { session.copyTranscript() }
                 .disabled(session.segments.isEmpty)

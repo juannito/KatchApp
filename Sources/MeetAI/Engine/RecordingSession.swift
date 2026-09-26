@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import FluidAudio
 import Foundation
 import SwiftUI
@@ -28,6 +29,26 @@ final class RecordingSession: ObservableObject {
     @Published var pendingSave: SessionDocument?
     /// Voice-recognition suggestions per speaker slot, computed when the recording stops.
     @Published var speakerSuggestions: [Int: ContactMatch] = [:]
+    /// Set when a capture permission is missing; the UI offers a shortcut to System Settings.
+    @Published var permissionHelp: PermissionKind?
+
+    enum PermissionKind {
+        case microphone, systemAudio
+
+        var settingsURL: URL {
+            switch self {
+            case .microphone:
+                return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
+            case .systemAudio:
+                return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")!
+            }
+        }
+    }
+
+    func openPermissionSettings() {
+        guard let kind = permissionHelp else { return }
+        NSWorkspace.shared.open(kind.settingsURL)
+    }
 
     private var models: LoadedModels?
     private weak var store: SessionStore?
@@ -63,6 +84,7 @@ final class RecordingSession: ObservableObject {
             return
         }
         message = nil
+        permissionHelp = nil
         pendingSave = nil
         speakerSuggestions = [:]
         segments = []
@@ -75,6 +97,8 @@ final class RecordingSession: ObservableObject {
             let ok = await MicCapture.requestPermission()
             if !ok {
                 message = L("No microphone permission. Enable it in System Settings > Privacy & Security > Microphone.")
+                permissionHelp = .microphone
+                AppLog.write("microphone permission denied (status: \(AVCaptureDevice.authorizationStatus(for: .audio).rawValue))")
                 return
             }
         }
@@ -130,6 +154,7 @@ final class RecordingSession: ObservableObject {
             } catch {
                 AppLog.write("system audio tap failed: \(error.localizedDescription)")
                 message = error.localizedDescription
+                permissionHelp = .systemAudio
                 if !micEnabled {
                     cleanupCapture()
                     return
