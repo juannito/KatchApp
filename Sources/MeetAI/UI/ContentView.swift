@@ -118,7 +118,7 @@ struct SessionsSidebar: View {
                         ) {
                             let inside = visibleSessions.filter { $0.project == p }
                             if inside.isEmpty {
-                                Text(L("Empty")).font(.caption).foregroundStyle(.tertiary)
+                                Text(L("Empty")).font(.caption).foregroundStyle(.tertiary).frame(height: 22)
                             }
                             ForEach(inside) { s in sessionRow(s, showProject: false) }
                         } label: {
@@ -143,6 +143,7 @@ struct SessionsSidebar: View {
                                 .background(Color.secondary.opacity(0.15), in: Capsule())
                         }
                     }
+                    .frame(height: 26)
                     .tag(SidebarSelection.contact(c.id))
                 }
             }
@@ -192,6 +193,7 @@ struct SessionsSidebar: View {
                 Image(systemName: "eye.slash").font(.caption).foregroundStyle(.tertiary)
             }
         }
+        .frame(height: 22)
         .contextMenu {
             if hidden {
                 Button(L("Unhide project")) { store.setHidden(p, false) }
@@ -208,7 +210,11 @@ struct SessionsSidebar: View {
             Text(subtitle(for: s, showProject: showProject))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
+        // Fixed height: macOS List caches row heights and overlaps rows when
+        // variable-height content inside DisclosureGroups changes.
+        .frame(height: 36, alignment: .leading)
         .tag(SidebarSelection.session(s.id))
         .contextMenu {
             Menu(L("Move to project")) {
