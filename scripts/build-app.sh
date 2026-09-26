@@ -1,0 +1,28 @@
+#!/bin/bash
+# Builds MeetAI.app (release) into dist/ and signs it ad hoc.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+CONFIG="${1:-release}"
+swift build -c "$CONFIG" --product MeetAI
+
+BIN=".build/$CONFIG/MeetAI"
+APP="dist/MeetAI.app"
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
+cp "$BIN" "$APP/Contents/MacOS/MeetAI"
+cp Sources/MeetAI/Resources/Info.plist "$APP/Contents/Info.plist"
+# SwiftPM resource bundles (FluidAudio ships one) are looked up in Contents/Resources.
+for b in .build/"$CONFIG"/*.bundle; do
+  [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/"
+done
+# Dynamic frameworks (if any) go next to the binary.
+for f in .build/"$CONFIG"/*.framework; do
+  [ -d "$f" ] && cp -R "$f" "$APP/Contents/Frameworks/"
+done
+if [ -f scripts/AppIcon.icns ]; then
+  cp scripts/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+  /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$APP/Contents/Info.plist" 2>/dev/null || true
+fi
+codesign --force --deep --sign - "$APP"
+echo "OK -> $APP"
