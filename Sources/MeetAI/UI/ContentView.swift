@@ -12,6 +12,7 @@ struct ContentView: View {
     @EnvironmentObject var store: SessionStore
     @EnvironmentObject var contacts: ContactStore
     @EnvironmentObject var summaryService: SummaryService
+    @EnvironmentObject var detector: MeetingDetector
     @State private var selection: SidebarSelection? = .live
     @State private var searchText = ""
 
@@ -41,6 +42,17 @@ struct ContentView: View {
         }
         .onChange(of: session.status) { _, status in
             if status == .recording { selection = .live }
+        }
+        .alert(L("Meeting detected"), isPresented: Binding(get: { detector.detection != nil }, set: { if !$0 { detector.detection = nil } }), presenting: detector.detection) { d in
+            Button(L("Record")) {
+                detector.detection = nil
+                selection = .live
+                Task { await session.start() }
+            }
+            .keyboardShortcut(.defaultAction)
+            Button(L("Ignore"), role: .cancel) { detector.ignoreCurrent() }
+        } message: { d in
+            Text(L("%@ is using the microphone. Record this meeting?", d.name))
         }
         .sheet(item: $session.pendingSave) { doc in
             SaveSheet(document: doc) { title, project, links in
@@ -230,6 +242,7 @@ struct SessionsSidebar: View {
 
     private func subtitle(for s: SessionSummary, showProject: Bool) -> String {
         var parts = [Self.dateFormatter.string(from: s.startedAt), TimeFormat.clock(s.duration), L10n.speakers(s.speakerCount)]
+        if let platform = s.platformName { parts.append(platform) }
         if showProject, let p = s.project { parts.append(p) }
         return parts.joined(separator: " · ")
     }
@@ -312,6 +325,9 @@ struct LiveView: View {
                 Text(TimeFormat.clock(session.elapsed))
                     .font(.system(.title2, design: .monospaced))
                     .foregroundStyle(session.isRecording ? .primary : .secondary)
+                if let platform = session.platformName {
+                    Label(platform, systemImage: "video").font(.caption).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             VStack(alignment: .leading, spacing: 6) {

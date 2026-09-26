@@ -30,6 +30,28 @@ extension AudioObjectID {
         try read(kAudioTapPropertyFormat, defaultValue: AudioStreamBasicDescription())
     }
 
+    func readArray<T>(
+        _ selector: AudioObjectPropertySelector,
+        scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal,
+        element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain,
+        of type: T.Type
+    ) throws -> [T] {
+        var address = AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: element)
+        var dataSize: UInt32 = 0
+        var err = AudioObjectGetPropertyDataSize(self, &address, 0, nil, &dataSize)
+        guard err == noErr else { throw AudioError("AudioObjectGetPropertyDataSize failed: \(err)") }
+        let count = Int(dataSize) / MemoryLayout<T>.stride
+        guard count > 0 else { return [] }
+        var values = [T](unsafeUninitializedCapacity: count) { buffer, initialized in
+            err = AudioObjectGetPropertyData(self, &address, 0, nil, &dataSize, buffer.baseAddress!)
+            initialized = err == noErr ? count : 0
+        }
+        guard err == noErr else { throw AudioError("AudioObjectGetPropertyData failed: \(err)") }
+        let actual = Int(dataSize) / MemoryLayout<T>.stride
+        if actual < values.count { values.removeLast(values.count - actual) }
+        return values
+    }
+
     func read<T>(
         _ selector: AudioObjectPropertySelector,
         scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal,

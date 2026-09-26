@@ -8,6 +8,8 @@ struct MeetAIApp: App {
     @StateObject private var language = AppLanguage()
     @StateObject private var summarySettings: SummarySettings
     @StateObject private var summaryService: SummaryService
+    @StateObject private var meetingApps: MeetingAppRegistry
+    @StateObject private var detector: MeetingDetector
     @Environment(\.openWindow) private var openWindow
 
     init() {
@@ -23,6 +25,9 @@ struct MeetAIApp: App {
         let settings = SummarySettings()
         _summarySettings = StateObject(wrappedValue: settings)
         _summaryService = StateObject(wrappedValue: SummaryService(settings: settings))
+        let registry = MeetingAppRegistry()
+        _meetingApps = StateObject(wrappedValue: registry)
+        _detector = StateObject(wrappedValue: MeetingDetector(registry: registry))
     }
 
     var body: some Scene {
@@ -36,6 +41,8 @@ struct MeetAIApp: App {
                 .environmentObject(language)
                 .environmentObject(summarySettings)
                 .environmentObject(summaryService)
+                .environmentObject(meetingApps)
+                .environmentObject(detector)
                 .frame(minWidth: 760, minHeight: 520)
                 .task {
                     NSApplication.shared.activate(ignoringOtherApps: true)
@@ -45,8 +52,9 @@ struct MeetAIApp: App {
                     contacts.reload()
                     await modelStore.loadIfNeeded()
                     if let models = modelStore.models {
-                        session.attach(models: models, store: sessionStore, contacts: contacts)
+                        session.attach(models: models, store: sessionStore, contacts: contacts, meetingApps: meetingApps)
                     }
+                    detector.start { [weak session] in session?.status != .idle }
                 }
                 .onReceive(sessionStore.$rootURL) { url in
                     if contacts.rootURL != url { contacts.setRoot(url) }
@@ -76,6 +84,7 @@ struct MeetAIApp: App {
                 .environmentObject(sessionStore)
                 .environmentObject(language)
                 .environmentObject(summarySettings)
+                .environmentObject(meetingApps)
         }
     }
 }

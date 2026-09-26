@@ -136,7 +136,7 @@ struct SessionDetailView: View {
                         document?.title = title.trimmingCharacters(in: .whitespaces).isEmpty ? nil : title
                         persist()
                     }
-                Text("\(Self.dateFormatter.string(from: doc.startedAt)) · \(TimeFormat.clock(doc.duration)) · \(L("%d turns", doc.turns.count))")
+                Text("\(Self.dateFormatter.string(from: doc.startedAt)) · \(TimeFormat.clock(doc.duration)) · \(L("%d turns", doc.turns.count))\(doc.platformName.map { " · \($0)" } ?? "")")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

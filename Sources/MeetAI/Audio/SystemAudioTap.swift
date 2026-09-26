@@ -18,15 +18,20 @@ final class SystemAudioTap {
     private var resampler: StreamResampler?
     private let handler: Handler
     private(set) var isRunning = false
+    /// Audio object IDs of the processes to capture; empty = everything the Mac plays.
+    private let processes: [AudioObjectID]
 
-    init(handler: @escaping Handler) {
+    init(processes: [AudioObjectID] = [], handler: @escaping Handler) {
+        self.processes = processes
         self.handler = handler
     }
 
     func start() throws {
         guard !isRunning else { return }
 
-        let description = CATapDescription(monoGlobalTapButExcludeProcesses: [])
+        let description = processes.isEmpty
+            ? CATapDescription(monoGlobalTapButExcludeProcesses: [])
+            : CATapDescription(monoMixdownOfProcesses: processes)
         description.uuid = UUID()
         description.muteBehavior = .unmuted
         description.name = "MeetAI system audio"

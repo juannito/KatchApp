@@ -39,6 +39,8 @@ struct SessionDocument: Codable {
     var speakerMicFraction: [Int: Double]
     var speakerContacts: [Int: String] = [:]     // slot -> contact id
     var speakerEmbeddings: [Int: [Float]] = [:]  // slot -> CAM++ voice embedding
+    var platform: String? = nil                  // bundle id of the meeting app (Zoom, Teams…)
+    var platformName: String? = nil
     var segments: [TranscriptSegment]
 
     init(
@@ -62,7 +64,7 @@ struct SessionDocument: Codable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, project, startedAt, endedAt, micEnabled, systemAudioEnabled, speakerNames, speakerMicFraction
-        case speakerContacts, speakerEmbeddings, segments
+        case speakerContacts, speakerEmbeddings, platform, platformName, segments
     }
 
     init(from decoder: Decoder) throws {
@@ -78,6 +80,8 @@ struct SessionDocument: Codable {
         speakerMicFraction = try c.decodeIfPresent([Int: Double].self, forKey: .speakerMicFraction) ?? [:]
         speakerContacts = try c.decodeIfPresent([Int: String].self, forKey: .speakerContacts) ?? [:]
         speakerEmbeddings = try c.decodeIfPresent([Int: [Float]].self, forKey: .speakerEmbeddings) ?? [:]
+        platform = try c.decodeIfPresent(String.self, forKey: .platform)
+        platformName = try c.decodeIfPresent(String.self, forKey: .platformName)
         segments = try c.decodeIfPresent([TranscriptSegment].self, forKey: .segments) ?? []
     }
 
@@ -166,7 +170,9 @@ extension SessionDocument {
         var md = "# \(displayTitle) — \(df.string(from: startedAt))\n\n"
         let sources = [micEnabled ? L("microphone") : nil, systemAudioEnabled ? L("system audio") : nil]
             .compactMap { $0 }.joined(separator: " + ")
-        md += "\(L("Sources")): \(sources)\n\n"
+        md += "\(L("Sources")): \(sources)\n"
+        if let platformName { md += "\(L("Platform")): \(platformName)\n" }
+        md += "\n"
         let slots = Set(segments.compactMap(\.speaker)).sorted()
         if !slots.isEmpty {
             md += "## \(L("Speakers"))\n\n"

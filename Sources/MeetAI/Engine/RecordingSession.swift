@@ -56,6 +56,9 @@ final class RecordingSession: ObservableObject {
     private var models: LoadedModels?
     private weak var store: SessionStore?
     private weak var contacts: ContactStore?
+    private weak var meetingApps: MeetingAppRegistry?
+    @Published private(set) var platformName: String?
+    private var platformTimer: Timer?
     private var engine: TranscriptionEngine?
     private var mic: MicCapture?
     private var tap: SystemAudioTap?
@@ -72,10 +75,25 @@ final class RecordingSession: ObservableObject {
     var speakerSlots: [Int] { Set(segments.compactMap(\.speaker)).sorted() }
     var voiceRecognitionAvailable: Bool { models?.fingerprinter != nil }
 
-    func attach(models: LoadedModels, store: SessionStore, contacts: ContactStore) {
+    func attach(models: LoadedModels, store: SessionStore, contacts: ContactStore, meetingApps: MeetingAppRegistry) {
         self.models = models
         self.store = store
         self.contacts = contacts
+        self.meetingApps = meetingApps
+    }
+
+    /// Looks for a meeting app with audio and tags the session with it (first hit wins).
+    private func detectPlatform() {
+        guard var doc = document, doc.platform == nil, let meetingApps else { return }
+        let processes = AudioProcesses.list()
+        meetingApps.noteSeen(processes)
+        guard let app = meetingApps.meetingProcesses(in: processes).first(where: { $0.isRunningInput || $0.isRunningOutput })
+        else { return }
+        doc.platform = app.bundleID
+        doc.platformName = meetingApps.name(for: app.bundleID, fallback: app.name)
+        document = doc
+        platformName = doc.platformName
+        AppLog.write("platform: \(app.bundleID) (\(doc.platformName ?? ""))")
     }
 
     // MARK: - Start
@@ -121,6 +139,20 @@ final class RecordingSession: ObservableObject {
         document = SessionDocument(
             id: UUID(), startedAt: startedAt, endedAt: nil, micEnabled: micEnabled,
             systemAudioEnabled: systemAudioEnabled, speakerNames: [:], speakerMicFraction: [:], segments: [])
+        platformName = nil
+
+        // Which processes to tap: the meeting app(s) if present (and the setting says so), else everything.
+        var tapProcesses: [AudioObjectID] = []
+        if let meetingApps {
+            let processes = AudioProcesses.list()
+            meetingApps.noteSeen(processes)
+            let meeting = meetingApps.meetingProcesses(in: processes)
+            if meetingApps.captureMode == .meetingApp, !meeting.isEmpty {
+                tapProcesses = meeting.map(\.objectID)
+                AppLog.write("tapping only: \(meeting.map(\.bundleID))")
+            }
+        }
+        detectPlatform()
 
         let engine = TranscriptionEngine(models: models)
         self.engine = engine
@@ -151,7 +183,7 @@ final class RecordingSession: ObservableObject {
 
         var started = false
         if systemAudioEnabled {
-            let tap = SystemAudioTap { [weak self] samples in self?.mixBus?.pushSys(samples) }
+            let tap = SystemAudioTap(processes: tapProcesses) { [weak self] samples in self?.mixBus?.pushSys(samples) }
             do {
                 try tap.start()
                 self.tap = tap
@@ -189,6 +221,9 @@ final class RecordingSession: ObservableObject {
 
         status = .recording
         AppLog.write("recording started (mic: \(micEnabled), system: \(systemAudioEnabled)) -> \(folder.path)")
+        platformTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.detectPlatform() }
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
@@ -205,6 +240,8 @@ final class RecordingSession: ObservableObject {
         status = .finishing
         timer?.invalidate()
         timer = nil
+        platformTimer?.invalidate()
+        platformTimer = nil
         mic?.stop()
         tap?.stop()
         chunkContinuation?.finish()

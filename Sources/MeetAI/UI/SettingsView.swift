@@ -5,6 +5,8 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView()
                 .tabItem { Label(L("General"), systemImage: "gearshape") }
+            MeetingsSettingsView()
+                .tabItem { Label(L("Meetings"), systemImage: "video") }
             SummarySettingsView()
                 .tabItem { Label(L("Summary"), systemImage: "text.badge.checkmark") }
         }
@@ -236,4 +238,58 @@ struct OllamaModelStatusView: View {
             refresh()
         }
     }
+}
+
+
+struct MeetingsSettingsView: View {
+    @EnvironmentObject var registry: MeetingAppRegistry
+    @State private var apps: [MeetingApp] = []
+    @State private var launchAtLogin = false
+
+    var body: some View {
+        Form {
+            Section(L("Capture")) {
+                Picker(L("System audio"), selection: $registry.captureMode) {
+                    ForEach(CaptureMode.allCases) { m in Text(m.title).tag(m) }
+                }
+                .pickerStyle(.radioGroup)
+                Text(L("With “only the meeting app”, MeetAI records just the audio of the meeting app it finds when you press Record (Zoom, Teams, your browser…). If none is running it records everything."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("Meeting detection")) {
+                Toggle(L("Ask to record when a meeting app starts using the microphone"), isOn: $registry.autoDetect)
+                Toggle(L("Open MeetAI at login"), isOn: Binding(get: { launchAtLogin }, set: { registry.launchAtLogin = $0; launchAtLogin = registry.launchAtLogin }))
+                Text(L("Detection only works while MeetAI is open. Opening it at login keeps it ready for every meeting."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("Meeting apps")) {
+                Text(L("Apps in this list are tagged as the meeting platform, captured on their own and watched for calls. Rename any app, or mark an app you use for meetings."))
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(apps) { app in
+                    HStack(spacing: 10) {
+                        Toggle("", isOn: Binding(get: { app.isMeetingApp }, set: { registry.setMeetingApp(app.bundleID, $0); reload() }))
+                            .labelsHidden()
+                        TextField(app.bundleID, text: Binding(get: { app.name }, set: { registry.rename(app.bundleID, to: $0) }))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 220)
+                            .onSubmit(reload)
+                        Text(app.bundleID).font(.caption.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        if app.isRunning {
+                            Label(L("running"), systemImage: "circle.fill").font(.caption).foregroundStyle(.green)
+                        }
+                    }
+                }
+                Button(L("Refresh")) { reload() }
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.vertical, 8)
+        .onAppear {
+            reload()
+            launchAtLogin = registry.launchAtLogin
+        }
+    }
+
+    private func reload() { apps = registry.allApps() }
 }

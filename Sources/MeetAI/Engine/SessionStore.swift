@@ -12,6 +12,7 @@ struct SessionSummary: Identifiable, Hashable {
     let speakerCount: Int
     let project: String?
     let contactIDs: Set<String>
+    let platformName: String?
     /// Lowercased title + project + speaker names + transcript text, for the sidebar search.
     let searchText: String
 
@@ -243,7 +244,7 @@ final class SessionStore: ObservableObject {
         let json = folder.appendingPathComponent(transcriptFile)
         guard FileManager.default.fileExists(atPath: json.path), let doc = readDocument(at: folder) else { return nil }
         let id = project.map { "\($0)/\(folder.lastPathComponent)" } ?? folder.lastPathComponent
-        var text = [doc.displayTitle, project ?? ""] + Array(doc.speakerNames.values)
+        var text = [doc.displayTitle, project ?? "", doc.platformName ?? ""] + Array(doc.speakerNames.values)
         text.append(contentsOf: doc.segments.map(\.text))
         if let summary = try? String(contentsOf: folder.appendingPathComponent("summary.md"), encoding: .utf8) {
             text.append(summary)
@@ -251,7 +252,7 @@ final class SessionStore: ObservableObject {
         return SessionSummary(
             id: id, folder: folder, title: doc.displayTitle, startedAt: doc.startedAt, duration: doc.duration,
             segmentCount: doc.segments.count, speakerCount: Set(doc.segments.compactMap(\.speaker)).count,
-            project: project, contactIDs: Set(doc.speakerContacts.values),
+            project: project, contactIDs: Set(doc.speakerContacts.values), platformName: doc.platformName,
             searchText: SessionSummary.fold(text.joined(separator: " ")))
     }
 

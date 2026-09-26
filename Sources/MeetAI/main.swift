@@ -10,6 +10,11 @@ if arguments.count >= 3, arguments[1] == "--selftest" {
         exit(code)
     }
     dispatchMain()
+} else if arguments.count >= 2, arguments[1] == "--audio-processes" {
+    for p in AudioProcesses.list() {
+        print("\(p.pid)\t\(p.isRunningInput ? "MIC" : "   ")\t\(p.isRunningOutput ? "OUT" : "   ")\t\(p.bundleID)\t\(p.name)")
+    }
+    exit(0)
 } else if arguments.count >= 3, arguments[1] == "--summarize" {
     // MeetAI --summarize <session folder> [ollama model]
     let folder = URL(fileURLWithPath: arguments[2], isDirectory: true)
