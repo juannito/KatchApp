@@ -2,6 +2,10 @@
 
 Formato: una entrada por versión. Minor (0.x.0) por feature nueva, patch (0.x.y) por arreglos.
 
+## 0.4.0 — 2026-09-26
+
+- Búsqueda dentro de la conversación: al abrir una reunión con un término buscado, el transcript resalta cada coincidencia, muestra "N de M coincidencias" con flechas para saltar entre ellas (⌘G / ⇧⌘G) y arranca en la más reciente.
+
 ## 0.3.1 — 2026-09-26
 
 - Búsqueda insensible a mayúsculas y acentos; también busca en el resumen generado.

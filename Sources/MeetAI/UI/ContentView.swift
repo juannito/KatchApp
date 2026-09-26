@@ -13,16 +13,17 @@ struct ContentView: View {
     @EnvironmentObject var contacts: ContactStore
     @EnvironmentObject var summaryService: SummaryService
     @State private var selection: SidebarSelection? = .live
+    @State private var searchText = ""
 
     var body: some View {
         NavigationSplitView {
-            SessionsSidebar(selection: $selection)
+            SessionsSidebar(selection: $selection, searchText: $searchText)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             switch selection {
             case .session(let id):
                 if let summary = store.sessions.first(where: { $0.id == id }) {
-                    SessionDetailView(summary: summary, selection: $selection)
+                    SessionDetailView(summary: summary, selection: $selection, searchQuery: searchText)
                         .id(summary.id)
                 } else {
                     LiveView()
@@ -70,7 +71,7 @@ struct SessionsSidebar: View {
     @State private var pendingDelete: SessionSummary?
     @State private var showNewProject = false
     @State private var newProjectName = ""
-    @State private var searchText = ""
+    @Binding var searchText: String
     @State private var collapsed: Set<String> = []
 
     private static let dateFormatter: DateFormatter = {

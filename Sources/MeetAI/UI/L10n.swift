@@ -219,6 +219,8 @@ enum L10n {
             "Buy me a coffee ☕": "Invitame un café ☕",
             "This is me": "Este soy yo",
             "Search meetings": "Buscar reuniones",
+            "No matches for “%@”": "Sin coincidencias para “%@”",
+            "%d of %d matches for “%@”": "%d de %d coincidencias para “%@”",
             "No results.": "Sin resultados.",
             "Empty": "Vacío",
             "Open System Settings": "Abrir Ajustes del Sistema",

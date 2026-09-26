@@ -15,6 +15,10 @@ struct TranscriptListView: View {
     var emptyText: String = ""
     var emptyDetail: String? = nil
     var autoScroll = true
+    /// Search term to highlight inside turns (case/accent-insensitive).
+    var highlight: String = ""
+    /// Turn to scroll to and emphasise (search navigation).
+    var focusID: UUID? = nil
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -33,8 +37,10 @@ struct TranscriptListView: View {
                         .padding(.top, 40)
                     }
                     ForEach(turns) { turn in
-                        TurnRow(turn: turn, name: SpeakerLabel.name(for: turn.speaker, names: names))
-                            .id(turn.id)
+                        TurnRow(
+                            turn: turn, name: SpeakerLabel.name(for: turn.speaker, names: names),
+                            highlight: highlight, isFocused: turn.id == focusID)
+                        .id(turn.id)
                     }
                     Color.clear.frame(height: 1).id("bottom")
                 }
@@ -44,6 +50,14 @@ struct TranscriptListView: View {
             .onChange(of: turns.count) { _, _ in
                 if autoScroll { withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
             }
+            .onChange(of: focusID) { _, id in
+                if let id { withAnimation { proxy.scrollTo(id, anchor: .center) } }
+            }
+            .onAppear {
+                if let focusID {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { proxy.scrollTo(focusID, anchor: .center) }
+                }
+            }
         }
     }
 }
@@ -51,6 +65,26 @@ struct TranscriptListView: View {
 struct TurnRow: View {
     let turn: TranscriptSegment
     let name: String
+    var highlight: String = ""
+    var isFocused = false
+
+    private var attributedText: AttributedString {
+        var attr = AttributedString(turn.text)
+        let q = highlight.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return attr }
+        let text = turn.text
+        var searchRange = text.startIndex..<text.endIndex
+        while let r = text.range(of: q, options: [.caseInsensitive, .diacriticInsensitive], range: searchRange) {
+            if let lo = AttributedString.Index(r.lowerBound, within: attr),
+                let hi = AttributedString.Index(r.upperBound, within: attr)
+            {
+                attr[lo..<hi].backgroundColor = isFocused ? .orange.opacity(0.7) : .yellow.opacity(0.45)
+                attr[lo..<hi].inlinePresentationIntent = .stronglyEmphasized
+            }
+            searchRange = r.upperBound..<text.endIndex
+        }
+        return attr
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -67,12 +101,15 @@ struct TurnRow: View {
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.tertiary)
                 }
-                Text(turn.text)
+                Text(attributedText)
                     .font(.body)
                     .textSelection(.enabled)
                     .foregroundStyle(turn.attributed ? .primary : .secondary)
             }
         }
+        .padding(6)
+        .background(isFocused ? Color.accentColor.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+        .padding(-6)
     }
 }
 

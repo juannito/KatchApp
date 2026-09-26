@@ -8,6 +8,8 @@ struct SessionDetailView: View {
     @EnvironmentObject var modelStore: ModelStore
     let summary: SessionSummary
     @Binding var selection: SidebarSelection?
+    var searchQuery: String = ""
+    @State private var matchIndex = 0
     @State private var document: SessionDocument?
     @State private var title = ""
     @State private var loadFailed = false
@@ -27,12 +29,55 @@ struct SessionDetailView: View {
         Dictionary(uniqueKeysWithValues: contacts.contacts.map { ($0.id, $0.name) })
     }
 
+    private var query: String { searchQuery.trimmingCharacters(in: .whitespaces) }
+
+    /// Turn ids containing the search term, in transcript order.
+    private var matchIDs: [UUID] {
+        guard !query.isEmpty, let doc = document else { return [] }
+        let q = SessionSummary.fold(query)
+        return doc.turns.filter { SessionSummary.fold($0.text).contains(q) }.map(\.id)
+    }
+
+    private var focusID: UUID? {
+        let ids = matchIDs
+        guard !ids.isEmpty else { return nil }
+        return ids[min(max(matchIndex, 0), ids.count - 1)]
+    }
+
+    @ViewBuilder
+    private var searchBar: some View {
+        let ids = matchIDs
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            if ids.isEmpty {
+                Text(L("No matches for “%@”", query)).foregroundStyle(.secondary)
+            } else {
+                Text(L("%d of %d matches for “%@”", min(matchIndex, ids.count - 1) + 1, ids.count, query))
+            }
+            Spacer()
+            Button { matchIndex = (matchIndex - 1 + ids.count) % max(ids.count, 1) } label: { Image(systemName: "chevron.up") }
+                .disabled(ids.count < 2)
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+            Button { matchIndex = (matchIndex + 1) % max(ids.count, 1) } label: { Image(systemName: "chevron.down") }
+                .disabled(ids.count < 2)
+                .keyboardShortcut("g", modifiers: [.command])
+        }
+        .font(.callout)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
     var body: some View {
         Group {
             if let doc = document {
                 VStack(spacing: 0) {
                     header(doc)
                     Divider()
+                    if !query.isEmpty, tab == .transcript {
+                        searchBar
+                        Divider()
+                    }
                     HSplitView {
                         Group {
                             if tab == .summary {
@@ -40,7 +85,8 @@ struct SessionDetailView: View {
                             } else {
                                 TranscriptListView(
                                     turns: doc.turns, names: doc.effectiveNames(contactNames: contactNames),
-                                    emptyText: L("This session has no text."), autoScroll: false)
+                                    emptyText: L("This session has no text."), autoScroll: false,
+                                    highlight: query, focusID: focusID)
                             }
                         }
                         .frame(minWidth: 320)
@@ -76,6 +122,8 @@ struct SessionDetailView: View {
             }
         }
         .task(id: summary.id) { load() }
+        .onChange(of: query) { _, _ in matchIndex = max(matchIDs.count - 1, 0) }
+        .onChange(of: document == nil) { _, _ in matchIndex = max(matchIDs.count - 1, 0) }
     }
 
     private func header(_ doc: SessionDocument) -> some View {
