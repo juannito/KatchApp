@@ -15,6 +15,7 @@ struct SessionDetailView: View {
     @State private var loadFailed = false
     @State private var tab: Tab = .transcript
     @State private var folderSize: Int64 = 0
+    @StateObject private var playback = PlaybackController()
     @State private var showDelete = false
     @State private var deleteConfirmation = ""
 
@@ -86,10 +87,16 @@ struct SessionDetailView: View {
                             if tab == .summary {
                                 SummaryView(folder: summary.folder)
                             } else {
-                                TranscriptListView(
-                                    turns: doc.turns, names: doc.effectiveNames(contactNames: contactNames),
-                                    emptyText: L("This session has no text."), autoScroll: false,
-                                    highlight: query, focusID: focusID)
+                                VStack(spacing: 0) {
+                                    TranscriptListView(
+                                        turns: doc.turns, names: doc.effectiveNames(contactNames: contactNames),
+                                        emptyText: L("This session has no text."), autoScroll: false,
+                                        highlight: query, focusID: focusID,
+                                        playhead: playback.isPlaying || playback.currentTime > 0 ? playback.currentTime : nil,
+                                        onSelectTurn: { turn in playback.seek(to: turn.start, andPlay: true) })
+                                    Divider()
+                                    PlaybackBar(playback: playback)
+                                }
                             }
                         }
                         .frame(minWidth: 320)
@@ -125,6 +132,7 @@ struct SessionDetailView: View {
             }
         }
         .task(id: summary.id) { load() }
+        .onDisappear { playback.unload() }
         .sheet(isPresented: $showDelete) {
             VStack(alignment: .leading, spacing: 14) {
                 Label(L("Delete this meeting permanently?"), systemImage: "exclamationmark.triangle.fill")
@@ -225,6 +233,7 @@ struct SessionDetailView: View {
             loadFailed = true
         }
         let folder = summary.folder
+        playback.load(url: folder.appendingPathComponent(SessionStore.audioFile))
         Task.detached {
             let size = SessionStore.folderSize(folder)
             await MainActor.run { folderSize = size }

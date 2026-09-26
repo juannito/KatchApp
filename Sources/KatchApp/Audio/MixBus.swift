@@ -19,6 +19,13 @@ final class MixBus {
     private let sysEnabled: Bool
     private let stallSamples = 16000 * 2  // 2 s
     var output: ((MixedChunk) -> Void)?
+    /// Set from the main thread; read on the audio queues. Muted mic contributes silence.
+    private let muteLock = NSLock()
+    private var _micMuted = false
+    var micMuted: Bool {
+        get { muteLock.lock(); defer { muteLock.unlock() }; return _micMuted }
+        set { muteLock.lock(); _micMuted = newValue; muteLock.unlock() }
+    }
 
     init(micEnabled: Bool, sysEnabled: Bool) {
         self.micEnabled = micEnabled
@@ -70,7 +77,9 @@ final class MixBus {
                 }
                 sys.removeFirst(frame)
             }
-            if micEnabled && !padMic {
+            if micEnabled && !padMic && micMuted {
+                mic.removeFirst(frame)
+            } else if micEnabled && !padMic {
                 for i in 0..<frame { micEnergy += mic[i] * mic[i] }
                 // Echo ducking: without headphones the microphone re-captures the remote side
                 // a few ms later, and the diarizer then hears every remote voice twice. While the

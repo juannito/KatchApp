@@ -9,6 +9,7 @@ final class RecordingSession: ObservableObject {
     enum Status: Equatable {
         case idle
         case recording
+        case paused
         case finishing
         case analyzing
         /// Offline transcription of an audio file; `progress` is 0…1.
@@ -27,6 +28,11 @@ final class RecordingSession: ObservableObject {
     @Published var sessionFolder: URL?
     @Published var micEnabled = true
     @Published var systemAudioEnabled = true
+    /// Mute (space bar) silences the mic without stopping capture.
+    @Published var micMuted = false { didSet { mixBus?.micMuted = micMuted } }
+    static let systemAudioDefaultsKey = "captureSystemAudio"
+    private var pausedAt: Date?
+    private var pausedTotal: TimeInterval = 0
     /// Set after `stop()`: the UI shows the save sheet.
     @Published var pendingSave: SessionDocument?
     /// Voice-recognition suggestions per speaker slot (live while recording, refined on stop).
@@ -76,7 +82,8 @@ final class RecordingSession: ObservableObject {
     private var startedAt = Date()
     private var document: SessionDocument?
 
-    var isRecording: Bool { status == .recording }
+    var isRecording: Bool { status == .recording || status == .paused }
+    var isPaused: Bool { status == .paused }
     var isImporting: Bool {
         if case .importing = status { return true }
         return false
@@ -118,6 +125,11 @@ final class RecordingSession: ObservableObject {
             message = L("Enable at least one audio source.")
             return
         }
+        systemAudioEnabled = UserDefaults.standard.object(forKey: Self.systemAudioDefaultsKey) as? Bool ?? true
+        micEnabled = true
+        micMuted = false
+        pausedAt = nil
+        pausedTotal = 0
         message = nil
         permissionHelp = nil
         pendingSave = nil
@@ -188,6 +200,11 @@ final class RecordingSession: ObservableObject {
         let bus = MixBus(micEnabled: micEnabled, sysEnabled: systemAudioEnabled)
         let output: (MixedChunk) -> Void = { [weak self] chunk in
             guard let self else { return }
+            // While paused, capture keeps running but nothing is written or transcribed.
+            if self.pauseFlag.isPaused {
+                Task { @MainActor in self.updateLevels(chunk) }
+                return
+            }
             self.wav?.write(chunk.samples)
             self.chunkContinuation?.yield(chunk)
             Task { @MainActor in self.updateLevels(chunk) }
@@ -240,17 +257,57 @@ final class RecordingSession: ObservableObject {
         }
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self else { return }
-                self.elapsed = Date().timeIntervalSince(self.startedAt)
+                guard let self, self.status == .recording else { return }
+                self.elapsed = Date().timeIntervalSince(self.startedAt) - self.pausedTotal
                 if Int(self.elapsed) % 30 == 0 { self.autosave() }
             }
         }
     }
 
+    // MARK: - Pause / mute
+
+    private final class PauseFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = false
+        var isPaused: Bool {
+            get { lock.lock(); defer { lock.unlock() }; return value }
+            set { lock.lock(); value = newValue; lock.unlock() }
+        }
+    }
+    private let pauseFlag = PauseFlag()
+
+    func pause() {
+        guard status == .recording else { return }
+        pauseFlag.isPaused = true
+        pausedAt = Date()
+        status = .paused
+        AppLog.write("recording paused at \(TimeFormat.clock(elapsed))")
+    }
+
+    func resume() {
+        guard status == .paused else { return }
+        if let p = pausedAt { pausedTotal += Date().timeIntervalSince(p) }
+        pausedAt = nil
+        pauseFlag.isPaused = false
+        status = .recording
+        AppLog.write("recording resumed")
+    }
+
+    func togglePause() {
+        if status == .paused { resume() } else { pause() }
+    }
+
+    func toggleMute() {
+        guard isRecording else { return }
+        micMuted.toggle()
+        AppLog.write(micMuted ? "mic muted" : "mic unmuted")
+    }
+
     // MARK: - Stop
 
     func stop() async {
-        guard status == .recording, let engine else { return }
+        guard status == .recording || status == .paused, let engine else { return }
+        pauseFlag.isPaused = false
         status = .finishing
         timer?.invalidate()
         timer = nil

@@ -86,13 +86,20 @@ struct ContentView: View {
 }
 
 extension ContentView {
-    /// Tab toggles the sidebar, unless a text field is being edited.
+    /// Tab toggles the sidebar and space toggles mute, unless a text field is being edited.
     private func installTabShortcut() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard event.keyCode == 48, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else { return event }
+            guard event.keyCode == 48 || event.keyCode == 49,
+                event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty
+            else { return event }
             if let responder = NSApp.keyWindow?.firstResponder, responder is NSTextView || responder is NSTextField {
                 return event
+            }
+            if event.keyCode == 49 {  // space: mute / unmute while recording
+                guard session.isRecording, NSApp.keyWindow?.attachedSheet == nil else { return event }
+                session.toggleMute()
+                return nil
             }
             withAnimation { columns = columns == .detailOnly ? .all : .detailOnly }
             return nil
@@ -343,6 +350,7 @@ struct LiveView: View {
     private var emptyText: String {
         switch session.status {
         case .recording: return L("Listening…")
+        case .paused: return L("Paused")
         case .importing: return L("Importing…")
         default: return L("Press “Record meeting” or drop an audio file here")
         }
@@ -398,6 +406,7 @@ struct LiveView: View {
     private var statusText: String {
         switch session.status {
         case .recording: return L("Recording")
+        case .paused: return L("Paused")
         case .finishing: return L("Finishing…")
         case .analyzing: return L("Refining speakers…")
         case .importing(let progress): return L("Importing… %d%%", Int((progress * 100).rounded()))
@@ -417,13 +426,20 @@ struct LiveView: View {
                     Label(platform, systemImage: "video").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Spacer()
-            VStack(alignment: .leading, spacing: 6) {
-                Toggle(L("Microphone"), isOn: $session.micEnabled)
-                Toggle(L("System audio (Zoom, Meet, Teams…)"), isOn: $session.systemAudioEnabled)
+            if session.isRecording {
+                Button { session.togglePause() } label: {
+                    Image(systemName: session.isPaused ? "play.fill" : "pause.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .clipShape(Circle())
+                .help(session.isPaused ? L("Resume recording") : L("Pause recording"))
+                .keyboardShortcut("p", modifiers: [.command])
             }
-            .toggleStyle(.checkbox)
-            .disabled(session.isRecording || session.isImporting)
+            Spacer()
+            MuteButton()
             LevelMeters()
         }
         .padding(16)
@@ -646,6 +662,25 @@ struct SaveSpeakerRow: View {
 }
 
 // MARK: - Shared controls
+
+/// Round mute button for the microphone. Space bar toggles it while recording.
+struct MuteButton: View {
+    @EnvironmentObject var session: RecordingSession
+
+    var body: some View {
+        Button { session.toggleMute() } label: {
+            Image(systemName: session.micMuted ? "mic.slash.fill" : "mic.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .frame(width: 26, height: 26)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(session.micMuted ? .red : .secondary)
+        .controlSize(.large)
+        .clipShape(Circle())
+        .disabled(!session.isRecording)
+        .help(session.micMuted ? L("Unmute microphone (space)") : L("Mute microphone (space)"))
+    }
+}
 
 struct RecordButton: View {
     @EnvironmentObject var modelStore: ModelStore

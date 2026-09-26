@@ -251,6 +251,9 @@ struct MeetingsSettingsView: View {
     var body: some View {
         Form {
             Section(L("Capture")) {
+                Toggle(L("Capture system audio (Zoom, Meet, Teams, browser…)"), isOn: Binding(
+                    get: { UserDefaults.standard.object(forKey: RecordingSession.systemAudioDefaultsKey) as? Bool ?? true },
+                    set: { UserDefaults.standard.set($0, forKey: RecordingSession.systemAudioDefaultsKey) }))
                 Picker(L("System audio"), selection: $registry.captureMode) {
                     ForEach(CaptureMode.allCases) { m in Text(m.title).tag(m) }
                 }

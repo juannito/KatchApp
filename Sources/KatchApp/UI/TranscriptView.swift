@@ -19,6 +19,15 @@ struct TranscriptListView: View {
     var highlight: String = ""
     /// Turn to scroll to and emphasise (search navigation).
     var focusID: UUID? = nil
+    /// Playback position in seconds; the turn and word under it are highlighted.
+    var playhead: Double? = nil
+    /// Called when a turn is clicked (seek).
+    var onSelectTurn: ((TranscriptSegment) -> Void)? = nil
+
+    private var playingTurnID: UUID? {
+        guard let t = playhead else { return nil }
+        return turns.first { t >= $0.start && t < $0.end + 0.3 }?.id
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -39,8 +48,11 @@ struct TranscriptListView: View {
                     ForEach(turns) { turn in
                         TurnRow(
                             turn: turn, name: SpeakerLabel.name(for: turn.speaker, names: names),
-                            highlight: highlight, isFocused: turn.id == focusID)
+                            highlight: highlight, isFocused: turn.id == focusID,
+                            playhead: turn.id == playingTurnID ? playhead : nil)
                         .id(turn.id)
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2) { onSelectTurn?(turn) }
                     }
                     Color.clear.frame(height: 1).id("bottom")
                 }
@@ -52,6 +64,9 @@ struct TranscriptListView: View {
             }
             .onChange(of: focusID) { _, id in
                 if let id { withAnimation { proxy.scrollTo(id, anchor: .center) } }
+            }
+            .onChange(of: playingTurnID) { _, id in
+                if let id, playhead != nil { withAnimation { proxy.scrollTo(id, anchor: .center) } }
             }
             .onAppear {
                 if let focusID {
@@ -67,9 +82,30 @@ struct TurnRow: View {
     let name: String
     var highlight: String = ""
     var isFocused = false
+    /// Playback position inside this turn, or nil when it is not the current turn.
+    var playhead: Double? = nil
 
     private var attributedText: AttributedString {
         var attr = AttributedString(turn.text)
+        if let t = playhead {
+            // Karaoke: words already spoken are primary, the current word is accented, the rest dim.
+            // Map each word to its character range in the joined text (words are joined with single spaces).
+            let text = turn.text
+            var cursor = text.startIndex
+            for (i, w) in turn.words.enumerated() {
+                guard let end = text.index(cursor, offsetBy: w.text.count, limitedBy: text.endIndex) else { break }
+                if let lo = AttributedString.Index(cursor, within: attr), let hi = AttributedString.Index(end, within: attr) {
+                    if t >= w.start && t < w.end {
+                        attr[lo..<hi].foregroundColor = .accentColor
+                        attr[lo..<hi].inlinePresentationIntent = .stronglyEmphasized
+                    } else if t < w.start {
+                        attr[lo..<hi].foregroundColor = .secondary
+                    }
+                }
+                cursor = end
+                if i < turn.words.count - 1, cursor < text.endIndex { cursor = text.index(after: cursor) }
+            }
+        }
         let q = highlight.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return attr }
         let text = turn.text
@@ -108,7 +144,7 @@ struct TurnRow: View {
             }
         }
         .padding(6)
-        .background(isFocused ? Color.accentColor.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+        .background(isFocused || playhead != nil ? Color.accentColor.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
         .padding(-6)
     }
 }

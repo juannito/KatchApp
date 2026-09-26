@@ -2,6 +2,13 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.11.0 — 2026-09-26
+
+- Playback: saved sessions get a transport bar (play/pause, ±10 s, scrubber). The transcript follows the audio: the current line is highlighted, the current word is accented, upcoming words are dimmed. Double-click a line to play from there.
+- Microphone mute: round mic button in the recording header; the space bar toggles it while recording (unless you are typing in a field).
+- Pause / resume recording (button next to Stop, ⌘P). Capture keeps running but nothing is written or transcribed while paused; the timer stops.
+- The "System audio" checkbox moved to Settings > Meetings > Capture. The header only shows the mute button and the level meters.
+
 ## 0.10.0 — 2026-09-26
 
 - Import an audio file instead of recording: drop it on the empty live view, click the area, or use "Import audio…" in the footer. It runs the same pipeline (transcript, live speakers, offline refinement, voice suggestions) and ends in the same save sheet. `KatchApp --import <file>` does it headlessly.
