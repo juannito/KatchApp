@@ -8,6 +8,28 @@ struct Contact: Codable, Identifiable, Hashable {
     var avatarFile: String?
     var embeddings: [[Float]]
     var createdAt: Date
+    var isMe: Bool = false
+
+    init(id: String, name: String, avatarFile: String?, embeddings: [[Float]], createdAt: Date, isMe: Bool = false) {
+        self.id = id
+        self.name = name
+        self.avatarFile = avatarFile
+        self.embeddings = embeddings
+        self.createdAt = createdAt
+        self.isMe = isMe
+    }
+
+    enum CodingKeys: String, CodingKey { case id, name, avatarFile, embeddings, createdAt, isMe }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        avatarFile = try c.decodeIfPresent(String.self, forKey: .avatarFile)
+        embeddings = try c.decodeIfPresent([[Float]].self, forKey: .embeddings) ?? []
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        isMe = try c.decodeIfPresent(Bool.self, forKey: .isMe) ?? false
+    }
 
     var centroid: [Float]? {
         guard let first = embeddings.first else { return nil }
@@ -87,6 +109,16 @@ final class ContactStore: ObservableObject {
         } catch {
             AppLog.write("contacts save failed: \(error)")
         }
+    }
+
+    var me: Contact? { contacts.first { $0.isMe } }
+
+    /// Marks one contact as the user; clears the flag on every other contact.
+    func setMe(_ id: String, _ value: Bool) {
+        for i in contacts.indices {
+            contacts[i].isMe = value && contacts[i].id == id
+        }
+        persist()
     }
 
     func contact(_ id: String?) -> Contact? {

@@ -144,6 +144,11 @@ struct SessionsSidebar: View {
                     HStack(spacing: 8) {
                         AvatarView(contact: c, size: 22)
                         Text(c.name).lineLimit(1)
+                        if c.isMe {
+                            Text(L("me")).font(.caption).foregroundStyle(.secondary)
+                                .padding(.horizontal, 6).padding(.vertical, 1)
+                                .background(Color.secondary.opacity(0.15), in: Capsule())
+                        }
                     }
                     .tag(SidebarSelection.contact(c.id))
                 }
@@ -392,6 +397,10 @@ struct SaveSheet: View {
                     ? L("Link speakers to contacts so MeetAI recognises them next time.")
                     : L("Voice recognition is unavailable (model not loaded)."))
                     .font(.caption).foregroundStyle(.secondary)
+                if contacts.me == nil {
+                    Text(L("Mark your own contact as “This is me” so meetings can suggest you automatically."))
+                        .font(.caption).foregroundStyle(.tertiary)
+                }
                 ForEach(slots, id: \.self) { slot in
                     SaveSpeakerRow(slot: slot, links: $links)
                 }
@@ -461,6 +470,21 @@ struct SaveSpeakerRow: View {
                     Image(systemName: "mic.fill").foregroundStyle(.secondary)
                         .help(L("This voice comes through your microphone: probably you."))
                 }
+            }
+            if links[slot] == nil, suggestion == nil, let me = contacts.me,
+                (session.speakerMicFraction[slot] ?? 0) > 0.6, session.micEnabled, session.systemAudioEnabled,
+                !links.values.contains(me.id)
+            {
+                HStack(spacing: 8) {
+                    Image(systemName: "mic.fill").foregroundStyle(.secondary)
+                    Text(L("This voice comes through your microphone. Is it you (%@)?", me.name)).font(.callout)
+                    Button(L("Confirm")) {
+                        links[slot] = me.id
+                        if name.isEmpty { name = me.name }
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.leading, 20)
             }
             if let s = suggestion, links[slot] == nil, let c = contacts.contact(s.contactID) {
                 HStack(spacing: 8) {

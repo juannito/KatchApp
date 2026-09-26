@@ -33,6 +33,8 @@ struct ContactDetailView: View {
                         .onSubmit { contacts.rename(contact.id, to: name) }
                     Text(L("Voice samples: %d", current.embeddings.count))
                         .foregroundStyle(.secondary)
+                    Toggle(L("This is me"), isOn: Binding(get: { current.isMe }, set: { contacts.setMe(contact.id, $0) }))
+                        .toggleStyle(.switch)
                     HStack {
                         Button(L("Change photo…")) { contacts.chooseAvatar(for: contact.id) }
                         Button(L("Delete contact"), role: .destructive) { confirmDelete = true }
