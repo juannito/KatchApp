@@ -15,10 +15,12 @@ struct ContentView: View {
     @EnvironmentObject var detector: MeetingDetector
     @State private var selection: SidebarSelection? = .live
     @State private var searchText = ""
+    @State private var columns: NavigationSplitViewVisibility = .all
+    @State private var keyMonitor: Any?
 
     var body: some View {
-        NavigationSplitView {
-            SessionsSidebar(selection: $selection, searchText: $searchText)
+        NavigationSplitView(columnVisibility: $columns) {
+            SessionsSidebar(selection: $selection, searchText: $searchText, sidebarVisible: columns != .detailOnly)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             switch selection {
@@ -43,6 +45,7 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) { ThemeToggleButton() }
         }
+        .onAppear { installTabShortcut() }
         .onChange(of: session.status) { _, status in
             if status == .recording { selection = .live }
         }
@@ -74,6 +77,21 @@ struct ContentView: View {
     }
 }
 
+extension ContentView {
+    /// Tab toggles the sidebar, unless a text field is being edited.
+    private func installTabShortcut() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.keyCode == 48, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else { return event }
+            if let responder = NSApp.keyWindow?.firstResponder, responder is NSTextView || responder is NSTextField {
+                return event
+            }
+            withAnimation { columns = columns == .detailOnly ? .all : .detailOnly }
+            return nil
+        }
+    }
+}
+
 extension SessionDocument: Identifiable {}
 
 // MARK: - Sidebar
@@ -87,6 +105,7 @@ struct SessionsSidebar: View {
     @State private var showNewProject = false
     @State private var newProjectName = ""
     @Binding var searchText: String
+    var sidebarVisible = true
     @State private var collapsed: Set<String> = []
 
     private static let dateFormatter: DateFormatter = {
@@ -143,14 +162,7 @@ struct SessionsSidebar: View {
                 }
             }
             header: {
-                HStack {
-                    Text(L("History"))
-                    Spacer()
-                    Button { showNewProject = true } label: { Image(systemName: "folder.badge.plus") }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .help(L("New project…"))
-                }
+                Text(L("History"))
             }
             Section(L("Contacts")) {
                 if contacts.contacts.isEmpty {
@@ -175,6 +187,19 @@ struct SessionsSidebar: View {
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar, prompt: L("Search meetings"))
+        .toolbar {
+            if sidebarVisible {
+                ToolbarItem {
+                    Button { showNewProject = true } label: { Image(systemName: "folder.badge.plus") }
+                        .help(L("New project…"))
+                }
+                ToolbarItem {
+                    Toggle(isOn: $store.showHidden) { Image(systemName: store.showHidden ? "eye" : "eye.slash") }
+                        .toggleStyle(.button)
+                        .help(L("Show hidden projects"))
+                }
+            }
+        }
 
         .alert(L("New project"), isPresented: $showNewProject) {
             TextField(L("Project name"), text: $newProjectName)
