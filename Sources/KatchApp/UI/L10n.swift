@@ -40,6 +40,15 @@ enum L10n {
         return tables[current]?[key] ?? key
     }
 
+    /// Model-loading steps carry the model name; translate the template and keep the name.
+    static func step(_ raw: String) -> String {
+        for prefix in ["Loading ASR (", "Downloading ASR ("] where raw.hasPrefix(prefix) {
+            let name = raw.dropFirst(prefix.count).replacingOccurrences(of: ")…", with: "")
+            return L(prefix + "%@)…", name)
+        }
+        return L(raw)
+    }
+
     static func speakers(_ n: Int) -> String {
         n == 1 ? L("1 speaker") : L("%d speakers", n)
     }
@@ -118,7 +127,8 @@ enum L10n {
             "25 languages (English, Spanish, Portuguese, French, German, Italian…)": "25 idiomas (inglés, español, portugués, francés, alemán, italiano…)",
             "Retry": "Reintentar",
             "Downloading VAD (Silero)…": "Descargando VAD (Silero)…",
-            "Downloading ASR (Parakeet TDT 0.6B v3)…": "Descargando ASR (Parakeet TDT 0.6B v3)…",
+            "Loading ASR (%@)…": "Cargando ASR (%@)…",
+            "Downloading ASR (%@)…": "Descargando ASR (%@)…",
             "Downloading diarization (Nemotron 3)…": "Descargando diarización (Nemotron 3)…",
             "Preparing models…": "Preparando modelos…",
             "Models ready": "Modelos listos",

@@ -106,13 +106,14 @@ enum AsrModelChoice: String, CaseIterable, Identifiable {
     var repoURL: URL { URL(string: "https://huggingface.co/\(repoID)")! }
 
     var folderURL: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("FluidAudio/Models/\(repoID.split(separator: "/").last!)", isDirectory: true)
+        let models = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("FluidAudio/Models", isDirectory: true)
         if isStreaming {
+            // FluidAudio caches this repo under a short folder name, not the repo id.
             let lang = StreamingNemotronMultilingualAsrManager.languageDirectory(for: Self.nemotronLanguage)
-            return base.appendingPathComponent("\(lang)/\(Self.nemotronChunkMs)ms", isDirectory: true)
+            return models.appendingPathComponent("nemotron-multilingual/\(lang)/\(Self.nemotronChunkMs)ms", isDirectory: true)
         }
-        return base
+        return models.appendingPathComponent(String(repoID.split(separator: "/").last!), isDirectory: true)
     }
 
     /// Models shown in Settings (v2 is wired but not offered yet).

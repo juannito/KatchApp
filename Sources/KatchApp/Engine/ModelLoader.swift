@@ -38,20 +38,21 @@ enum ModelLoader {
         })
 
         let choice = AsrModelChoice.current
-        progress("Downloading ASR (\(choice.title))…", 0)
+        let asrStep = choice.isDownloaded ? "Loading ASR (\(choice.title))…" : "Downloading ASR (\(choice.title))…"
+        progress(asrStep, 0)
         var asr: AsrManager? = nil
         var streaming: SharedNemotronMultilingualModels? = nil
         if let version = choice.parakeetVersion {
             let asrModels = try await AsrModels.downloadAndLoad(
                 version: version,
-                progressHandler: { p in progress("Downloading ASR (\(choice.title))…", p.fractionCompleted) })
+                progressHandler: { p in progress(asrStep, p.fractionCompleted) })
             let manager = AsrManager(config: .default)
             try await manager.loadModels(asrModels)
             asr = manager
         } else {
             streaming = try await StreamingNemotronMultilingualAsrManager.downloadAndPreloadShared(
                 languageCode: AsrModelChoice.nemotronLanguage, chunkMs: AsrModelChoice.nemotronChunkMs,
-                progressHandler: { p in progress("Downloading ASR (\(choice.title))…", p.fractionCompleted) })
+                progressHandler: { p in progress(asrStep, p.fractionCompleted) })
         }
 
         progress("Downloading diarization (Nemotron 3)…", 0)

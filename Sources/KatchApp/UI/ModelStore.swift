@@ -12,11 +12,19 @@ final class ModelStore: ObservableObject {
 
     @Published var state: State = .idle
     private(set) var models: LoadedModels?
+    /// Models already loaded in this session, keyed by speech model, so switching back is instant.
+    private var cache: [AsrModelChoice: LoadedModels] = [:]
 
     var isReady: Bool { state == .ready }
 
     func loadIfNeeded() async {
         guard case .idle = state else { return }
+        if let cached = cache[AsrModelChoice.current] {
+            models = cached
+            state = .ready
+            AppLog.write("models switched from cache (asr: \(cached.asrChoice.rawValue))")
+            return
+        }
         state = .loading(step: "Preparing models…", fraction: 0)
         do {
             let loaded = try await ModelLoader.load { [weak self] step, fraction in
@@ -26,6 +34,7 @@ final class ModelStore: ObservableObject {
                 }
             }
             models = loaded
+            cache[loaded.asrChoice] = loaded
             state = .ready
         } catch {
             AppLog.write("model load FAILED: \(error)")

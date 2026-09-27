@@ -849,7 +849,7 @@ struct ModelStatusView: View {
         case .loading(let step, let fraction):
             HStack(spacing: 8) {
                 ProgressView(value: fraction).frame(width: 120)
-                Text(L(step)).font(.callout).foregroundStyle(.secondary)
+                Text(L10n.step(step)).font(.callout).foregroundStyle(.secondary)
             }
         case .ready:
             Label(L("Models ready (%@ + Nemotron 3, 100% local)", modelStore.models?.asrChoice.shortName ?? "Parakeet"), systemImage: "checkmark.circle.fill")

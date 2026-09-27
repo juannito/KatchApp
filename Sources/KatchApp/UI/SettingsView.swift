@@ -337,7 +337,7 @@ struct ModelsSettingsView: View {
                 if case .loading(let step, let fraction) = modelStore.state {
                     HStack(spacing: 8) {
                         ProgressView(value: fraction).frame(width: 160)
-                        Text(L(step)).font(.callout).foregroundStyle(.secondary)
+                        Text(L10n.step(step)).font(.callout).foregroundStyle(.secondary)
                     }
                 } else if session.status != .idle {
                     Text(L("Finish the current recording before switching models.")).font(.caption).foregroundStyle(.secondary)
