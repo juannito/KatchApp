@@ -185,9 +185,6 @@ struct SpeakersPanel: View {
                     onConfirmSuggestion: onConfirmSuggestion.map { confirm in { confirm(row.slot, $0) } })
             }
             Spacer()
-            Text(L("Click a name to rename it and press Enter. Saved to transcript.md and transcript.json."))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

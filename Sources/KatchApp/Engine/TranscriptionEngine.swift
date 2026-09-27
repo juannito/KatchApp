@@ -17,7 +17,8 @@ actor TranscriptionEngine {
         var speechStart: Float = 0.5
         var speechEnd: Float = 0.35
         var minSilence: Double = 0.7      // seconds of silence that closes a segment
-        var maxSegment: Double = 15.0     // force a cut on continuous speech
+        var maxSegment: Double = 15.0     // cut continuous speech around here, at the last dip in voice
+        var dipLookback: Double = 3.0     // how far back a dip may be to serve as the cut point
         var padding: Double = 0.25        // audio kept before/after speech
         var minWordsForOwnTurn = 1
     }
@@ -50,6 +51,7 @@ actor TranscriptionEngine {
     private var silenceSeconds = 0.0
     private var segmentStart = 0
     private var lastSpeechEnd = 0
+    private var lastDipEnd = 0            // end of the most recent VAD block without speech
 
     // Diarization timeline: probabilities [frame * numSpeakers], 10 ms per frame
     private var probs: [Float] = []
@@ -205,6 +207,7 @@ actor TranscriptionEngine {
             lastSpeechEnd = blockEnd
         } else {
             silenceSeconds += blockSeconds
+            lastDipEnd = blockEnd
         }
 
         let segmentSeconds = Double(blockEnd - segmentStart) / Double(Self.sampleRate)
@@ -213,8 +216,13 @@ actor TranscriptionEngine {
             closeSegment(end: end)
             speechActive = false
         } else if segmentSeconds >= config.maxSegment {
-            closeSegment(end: blockEnd)
-            segmentStart = blockEnd
+            // Continuous speech: cut at the most recent dip in voice activity (a word boundary)
+            // rather than at an arbitrary instant that may fall inside a word.
+            let lookback = Int(config.dipLookback * Double(Self.sampleRate))
+            let minLen = segmentStart + Int(2.0 * Double(Self.sampleRate))
+            let cut = (lastDipEnd > minLen && blockEnd - lastDipEnd <= lookback) ? lastDipEnd : blockEnd
+            closeSegment(end: min(totalSamples, cut))
+            segmentStart = max(audioOffset, cut)
             silenceSeconds = 0
         }
     }

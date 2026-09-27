@@ -14,6 +14,7 @@ struct SessionDetailView: View {
     @State private var title = ""
     @State private var loadFailed = false
     @State private var tab: Tab = .transcript
+    @FocusState private var titleFocused: Bool
     @State private var folderSize: Int64 = 0
     @StateObject private var playback = PlaybackController()
     @State private var showDelete = false
@@ -185,9 +186,21 @@ struct SessionDetailView: View {
                 TextField(L("Title"), text: $title)
                     .font(.title2.weight(.semibold))
                     .textFieldStyle(.plain)
+                    .focused($titleFocused)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(titleFocused ? Color.secondary.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                    .padding(.horizontal, -6)
                     .onSubmit {
                         document?.title = title.trimmingCharacters(in: .whitespaces).isEmpty ? nil : title
                         persist()
+                        titleFocused = false
+                    }
+                    .onChange(of: titleFocused) { _, focused in
+                        if !focused {
+                            document?.title = title.trimmingCharacters(in: .whitespaces).isEmpty ? nil : title
+                            persist()
+                        }
                     }
                 Text("\(Self.dateFormatter.string(from: doc.startedAt)) · \(TimeFormat.clock(doc.duration)) · \(L("%d turns", doc.turns.count))\(doc.platformName.map { " · \($0)" } ?? "")")
                     .font(.callout)
@@ -195,8 +208,8 @@ struct SessionDetailView: View {
             }
             Spacer()
             Picker("", selection: $tab) {
-                Text(L("Transcript")).tag(Tab.transcript)
                 Text(L("Summary")).tag(Tab.summary)
+                Text(L("Transcript")).tag(Tab.transcript)
             }
             .pickerStyle(.segmented)
             .frame(width: 220)
@@ -210,6 +223,36 @@ struct SessionDetailView: View {
                 Label(summary.project ?? L("No project"), systemImage: "folder")
             }
             .fixedSize()
+            Menu {
+                Button(L("Copy transcript")) {
+                    var d = doc
+                    d.speakerNames = doc.effectiveNames(contactNames: contactNames)
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(d.markdown(), forType: .string)
+                }
+                if let s = SummaryService.read(at: summary.folder) {
+                    Button(L("Copy summary")) {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(s.markdown(), forType: .string)
+                    }
+                }
+                Divider()
+                if hasAudio {
+                    Button(L("Open audio")) { NSWorkspace.shared.open(summary.folder.appendingPathComponent(SessionStore.audioFile)) }
+                }
+                Button(L("Show in Finder")) { store.reveal(summary.folder) }
+                Divider()
+                Button(L("Delete…"), role: .destructive) {
+                    deleteConfirmation = ""
+                    deleteScope = hasAudio ? .audioOnly : .everything
+                    showDelete = true
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help(L("Actions"))
         }
         .padding(16)
     }
@@ -225,30 +268,13 @@ struct SessionDetailView: View {
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .help(L("Size on disk (audio, transcript, summary)"))
-            Spacer()
-            Button(role: .destructive) {
-                deleteConfirmation = ""
-                deleteScope = hasAudio ? .audioOnly : .everything
-                showDelete = true
-            } label: {
-                Image(systemName: "trash")
-            }
-            .help(L("Delete the audio or the whole meeting"))
-            Button(L("Copy transcript")) {
-                var d = doc
-                d.speakerNames = doc.effectiveNames(contactNames: contactNames)
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(d.markdown(), forType: .string)
-            }
-            if hasAudio {
-                Button(L("Open audio")) { NSWorkspace.shared.open(summary.folder.appendingPathComponent(SessionStore.audioFile)) }
-            } else {
+            if !hasAudio {
                 Text(L("Audio deleted")).font(.caption).foregroundStyle(.tertiary)
             }
-            Button(L("Show in Finder")) { store.reveal(summary.folder) }
+            Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
     }
 
     private func load() {
@@ -259,6 +285,7 @@ struct SessionDetailView: View {
             loadFailed = true
         }
         let folder = summary.folder
+        tab = SummaryService.read(at: folder) != nil ? .summary : .transcript
         playback.load(url: folder.appendingPathComponent(SessionStore.audioFile))
         refreshSizes()
     }

@@ -5,6 +5,11 @@ enum SidebarSelection: Hashable {
     case live
     case session(String)
     case contact(String)
+    case about
+}
+
+extension Notification.Name {
+    static let showAbout = Notification.Name("KatchApp.showAbout")
 }
 
 struct ContentView: View {
@@ -30,6 +35,7 @@ struct ContentView: View {
                 }
         }
         .onAppear { installTabShortcut() }
+        .onReceive(NotificationCenter.default.publisher(for: .showAbout)) { _ in selection = .about }
         .onChange(of: session.status) { _, status in
             if status == .recording { selection = .live }
         }
@@ -78,6 +84,8 @@ struct ContentView: View {
                 } else {
                     LiveView()
                 }
+            case .about:
+                AboutView()
             default:
                 LiveView()
             }
@@ -210,6 +218,20 @@ struct SessionsSidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Button { selection = .about } label: {
+                    Label(L("About KatchApp"), systemImage: "info.circle")
+                        .foregroundStyle(selection == .about ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                Text("v\(AppInfo.version)").font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(.bar)
+        }
         .searchable(text: $searchText, placement: .sidebar, prompt: L("Search meetings"))
 
 

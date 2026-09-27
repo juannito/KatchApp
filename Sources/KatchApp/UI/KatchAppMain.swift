@@ -69,7 +69,10 @@ struct KatchAppMain: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(replacing: .appInfo) {
-                Button(L("About KatchApp")) { openWindow(id: "about") }
+                Button(L("About KatchApp")) {
+                    NSApp.activate(ignoringOtherApps: true)
+                    NotificationCenter.default.post(name: .showAbout, object: nil)
+                }
             }
             CommandGroup(after: .sidebar) {
                 Toggle(L("Show hidden projects"), isOn: $sessionStore.showHidden)
@@ -79,17 +82,6 @@ struct KatchAppMain: App {
             }
         }
 
-        Window(L("About KatchApp"), id: "about") {
-            AboutView()
-                .id(language.code)
-                .environmentObject(language)
-                .environmentObject(theme)
-                .environmentObject(sessionStore)
-                .preferredColorScheme(theme.colorScheme)
-                .frame(width: 640, height: 700)
-        }
-        .windowResizability(.contentSize)
-        .restorationBehavior(.disabled)
 
         Settings {
             SettingsView()

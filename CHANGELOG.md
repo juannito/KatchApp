@@ -2,6 +2,12 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.12.0 — 2026-09-26
+
+- Continuous speech is now cut at the last dip in voice activity instead of at an arbitrary instant, so a forced cut never splits a word. (Shorter segments were tried and degraded accuracy, so the 15 s maximum stays.)
+- About lives inside the main window (sidebar footer row and the app menu); the separate About window is gone.
+- Session detail: Summary tab first and opened by default when a summary exists; a "…" actions menu in the header (copy transcript, copy summary, open audio, show in Finder, delete) replaces the footer buttons; Regenerate is an icon that asks for confirmation; the speakers tip is gone; the title shows an edit background while focused and saves on blur.
+
 ## 0.11.1 — 2026-09-26
 
 - The delete sheet offers "only the audio" (keeps transcript, summary and speakers; playback disappears for that meeting) or "everything". Both require typing DELETE.

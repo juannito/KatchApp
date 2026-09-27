@@ -7,6 +7,7 @@ struct SummaryView: View {
     @EnvironmentObject var contacts: ContactStore
     let folder: URL
     @State private var summary: MeetingSummary?
+    @State private var confirmRegenerate = false
 
     var body: some View {
         ScrollView {
@@ -15,15 +16,13 @@ struct SummaryView: View {
                     if service.isRunning(folder) {
                         ProgressView().controlSize(.small)
                         Text(L("Generating summary…")).foregroundStyle(.secondary)
-                    } else {
-                        Button(summary == nil ? L("Generate summary") : L("Regenerate")) { generate() }
+                    } else if summary == nil {
+                        Button(L("Generate summary")) { generate() }
                             .disabled(!settings.isConfigured)
-                        if let summary {
-                            Button(L("Copy summary")) {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(summary.markdown(), forType: .string)
-                            }
-                        }
+                    } else {
+                        Button { confirmRegenerate = true } label: { Label(L("Regenerate"), systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }
+                            .disabled(!settings.isConfigured)
+                            .help(L("Regenerate the summary"))
                     }
                     Spacer()
                     if let summary {
@@ -65,6 +64,12 @@ struct SummaryView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .confirmationDialog(L("Regenerate the summary?"), isPresented: $confirmRegenerate, titleVisibility: .visible) {
+            Button(L("Regenerate")) { generate() }
+            Button(L("Cancel"), role: .cancel) {}
+        } message: {
+            Text(L("The current summary will be replaced by a new one from %@.", settings.provider.title))
         }
         .onAppear { summary = SummaryService.read(at: folder) }
         .onChange(of: service.version) { _, _ in summary = SummaryService.read(at: folder) }
