@@ -42,6 +42,19 @@ swift build && .build/debug/KatchApp      # build de desarrollo rápido
 scripts/bump-version.sh X.Y.Z             # bump de versión
 ```
 
+## Espacio en disco
+
+| Qué | Tamaño | Dónde |
+|---|---|---|
+| La app | ~15 MB | `dist/KatchApp.app` |
+| Modelos de voz (Parakeet, Nemotron 3 en vivo y offline, Silero, CAM++) | ~1.1 GB, se descargan una vez | `~/Library/Application Support/FluidAudio/Models` |
+| Caché de compilación para el Neural Engine | ~60 MB | `~/Library/Caches/com.juannito.katchapp` (macOS puede purgarla; la app recompila en 1–2 min, sin volver a descargar) |
+| Carpeta de build, solo si compilás vos | ~1.3 GB | `.build/` dentro del clon (se puede borrar después de compilar) |
+| Cada grabación | ~110 MB por hora de audio (WAV 16 kHz mono) más unos cientos de KB de transcript y resumen | `~/Documents/KatchApp` |
+| Opcional: modelos de Ollama para resúmenes | 2–5 GB por modelo | los administra Ollama |
+
+Contá con **~3 GB libres** para compilar y usar, o ~1,5 GB si solo corrés una app ya compilada. Las grabaciones se pueden aligerar después: el diálogo de borrado permite eliminar solo el audio de una reunión y conservar el transcript.
+
 ## Uso
 
 1. Esperá a que el pie de la ventana diga "Modelos listos".
