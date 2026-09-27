@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.11.1 — 2026-09-26
+
+- The delete sheet offers "only the audio" (keeps transcript, summary and speakers; playback disappears for that meeting) or "everything". Both require typing DELETE.
+
 ## 0.11.0 — 2026-09-26
 
 - Playback: saved sessions get a transport bar (play/pause, ±10 s, scrubber). The transcript follows the audio: the current line is highlighted, the current word is accented, upcoming words are dimmed. Double-click a line to play from there.

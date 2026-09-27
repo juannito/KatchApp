@@ -18,6 +18,11 @@ struct SessionDetailView: View {
     @StateObject private var playback = PlaybackController()
     @State private var showDelete = false
     @State private var deleteConfirmation = ""
+    @State private var deleteScope: DeleteScope = .audioOnly
+    @State private var audioSize: Int64 = 0
+
+    enum DeleteScope { case audioOnly, everything }
+    private var hasAudio: Bool { audioSize > 0 }
 
     enum Tab: Hashable { case transcript, summary }
 
@@ -94,8 +99,10 @@ struct SessionDetailView: View {
                                         highlight: query, focusID: focusID,
                                         playhead: playback.isPlaying || playback.currentTime > 0 ? playback.currentTime : nil,
                                         onSelectTurn: { turn in playback.seek(to: turn.start, andPlay: true) })
-                                    Divider()
-                                    PlaybackBar(playback: playback)
+                                    if playback.available {
+                                        Divider()
+                                        PlaybackBar(playback: playback)
+                                    }
                                 }
                             }
                         }
@@ -135,11 +142,22 @@ struct SessionDetailView: View {
         .onDisappear { playback.unload() }
         .sheet(isPresented: $showDelete) {
             VStack(alignment: .leading, spacing: 14) {
-                Label(L("Delete this meeting permanently?"), systemImage: "exclamationmark.triangle.fill")
+                Label(L("Delete “%@”", summary.title), systemImage: "exclamationmark.triangle.fill")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.red)
-                Text(L("“%@” and all its files (audio, transcript, summary — %@) will be deleted. This cannot be undone and does not go through the Trash.",
-                    summary.title, ByteCountFormatter.string(fromByteCount: folderSize, countStyle: .file)))
+                Picker("", selection: $deleteScope) {
+                    Text(L("Only the audio (%@) — keep transcript, summary and speakers", ByteCountFormatter.string(fromByteCount: audioSize, countStyle: .file)))
+                        .tag(DeleteScope.audioOnly)
+                    Text(L("Everything (%@) — audio, transcript, summary", ByteCountFormatter.string(fromByteCount: folderSize, countStyle: .file)))
+                        .tag(DeleteScope.everything)
+                }
+                .pickerStyle(.radioGroup)
+                .labelsHidden()
+                .disabled(!hasAudio)
+                Text(deleteScope == .audioOnly
+                    ? L("Playback will no longer be available for this meeting. Voice fingerprints already saved to contacts are kept.")
+                    : L("This cannot be undone and does not go through the Trash."))
+                    .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(L("Type DELETE to confirm:")).font(.callout).foregroundStyle(.secondary)
                 TextField("DELETE", text: $deleteConfirmation)
@@ -148,7 +166,7 @@ struct SessionDetailView: View {
                 HStack {
                     Button(L("Cancel")) { showDelete = false }.keyboardShortcut(.cancelAction)
                     Spacer()
-                    Button(L("Delete permanently"), role: .destructive) { performDelete() }
+                    Button(deleteScope == .audioOnly ? L("Delete audio") : L("Delete everything"), role: .destructive) { performDelete() }
                         .buttonStyle(.borderedProminent)
                         .tint(.red)
                         .disabled(deleteConfirmation != "DELETE")
@@ -208,17 +226,25 @@ struct SessionDetailView: View {
                 .foregroundStyle(.secondary)
                 .help(L("Size on disk (audio, transcript, summary)"))
             Spacer()
-            Button(role: .destructive) { deleteConfirmation = ""; showDelete = true } label: {
+            Button(role: .destructive) {
+                deleteConfirmation = ""
+                deleteScope = hasAudio ? .audioOnly : .everything
+                showDelete = true
+            } label: {
                 Image(systemName: "trash")
             }
-            .help(L("Delete this meeting and all its files"))
+            .help(L("Delete the audio or the whole meeting"))
             Button(L("Copy transcript")) {
                 var d = doc
                 d.speakerNames = doc.effectiveNames(contactNames: contactNames)
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(d.markdown(), forType: .string)
             }
-            Button(L("Open audio")) { NSWorkspace.shared.open(summary.folder.appendingPathComponent(SessionStore.audioFile)) }
+            if hasAudio {
+                Button(L("Open audio")) { NSWorkspace.shared.open(summary.folder.appendingPathComponent(SessionStore.audioFile)) }
+            } else {
+                Text(L("Audio deleted")).font(.caption).foregroundStyle(.tertiary)
+            }
             Button(L("Show in Finder")) { store.reveal(summary.folder) }
         }
         .padding(.horizontal, 16)
@@ -234,17 +260,33 @@ struct SessionDetailView: View {
         }
         let folder = summary.folder
         playback.load(url: folder.appendingPathComponent(SessionStore.audioFile))
+        refreshSizes()
+    }
+
+    private func refreshSizes() {
+        let folder = summary.folder
         Task.detached {
             let size = SessionStore.folderSize(folder)
-            await MainActor.run { folderSize = size }
+            let audio = (try? FileManager.default.attributesOfItem(atPath: folder.appendingPathComponent(SessionStore.audioFile).path)[.size] as? Int64) ?? 0
+            await MainActor.run {
+                folderSize = size
+                audioSize = audio
+            }
         }
     }
 
     private func performDelete() {
         guard deleteConfirmation == "DELETE" else { return }
         showDelete = false
-        store.deletePermanently(summary)
-        selection = .live
+        switch deleteScope {
+        case .everything:
+            store.deletePermanently(summary)
+            selection = .live
+        case .audioOnly:
+            playback.unload()
+            store.deleteAudio(summary)
+            refreshSizes()
+        }
     }
 
     private func persist() {

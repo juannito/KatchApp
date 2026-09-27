@@ -297,6 +297,17 @@ final class SessionStore: ObservableObject {
         return total
     }
 
+    /// Permanently deletes only audio.wav (transcript, summary and speakers stay). Not recoverable.
+    func deleteAudio(_ session: SessionSummary) {
+        do {
+            try FileManager.default.removeItem(at: session.folder.appendingPathComponent(Self.audioFile))
+            AppLog.write("audio deleted: \(session.id)")
+        } catch {
+            AppLog.write("audio delete failed: \(error)")
+        }
+        reload()
+    }
+
     /// Permanently deletes a session folder (audio, transcript, summary). Not recoverable.
     func deletePermanently(_ session: SessionSummary) {
         do {
