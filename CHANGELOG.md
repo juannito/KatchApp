@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.13.2 — 2026-09-27
+
+- Model switcher at the bottom of the sidebar (current model, popover with the list, Active and Streaming tags). The "Import audio…" footer button is gone; drop a file or click the empty area instead.
+
 ## 0.13.1 — 2026-09-27
 
 - Settings > Meetings no longer lists individual apps; the built-in list (Zoom, Teams, Meet in browsers, FaceTime, WhatsApp…) is applied silently.

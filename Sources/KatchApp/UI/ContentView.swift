@@ -219,14 +219,17 @@ struct SessionsSidebar: View {
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
-            HStack {
-                Button { selection = .about } label: {
-                    Label(L("About KatchApp"), systemImage: "info.circle")
-                        .foregroundStyle(selection == .about ? Color.accentColor : Color.secondary)
+            VStack(spacing: 6) {
+                HStack {
+                    Button { selection = .about } label: {
+                        Label(L("About KatchApp"), systemImage: "info.circle")
+                            .foregroundStyle(selection == .about ? Color.accentColor : Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                    Text("v\(AppInfo.version)").font(.caption).foregroundStyle(.tertiary)
                 }
-                .buttonStyle(.plain)
-                Spacer()
-                Text("v\(AppInfo.version)").font(.caption).foregroundStyle(.tertiary)
+                ModelPickerButton()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -313,6 +316,84 @@ struct SessionsSidebar: View {
         if let moved = store.move(sessionFolder: s.folder, toProject: project) {
             let id = project.map { "\($0)/\(moved.lastPathComponent)" } ?? moved.lastPathComponent
             if selection == .session(s.id) { selection = .session(id) }
+        }
+    }
+}
+
+/// Handy-style model switcher at the bottom of the sidebar: current model + a popover list.
+struct ModelPickerButton: View {
+    @EnvironmentObject var modelStore: ModelStore
+    @EnvironmentObject var session: RecordingSession
+    @State private var open = false
+    @State private var downloaded: Set<AsrModelChoice> = []
+
+    private var current: AsrModelChoice { modelStore.models?.asrChoice ?? .current }
+    private var loading: Bool { if case .loading = modelStore.state { return true } else { return false } }
+    private var canSwitch: Bool { !loading && session.status == .idle }
+
+    var body: some View {
+        Button { open.toggle() } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(loading ? Color.orange : (modelStore.isReady ? Color.green : Color.secondary))
+                    .frame(width: 7, height: 7)
+                Text(loading ? L("Loading…") : current.shortName)
+                    .font(.callout)
+                    .lineLimit(1)
+                Image(systemName: "chevron.up").font(.caption2)
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(L("Speech recognition model"))
+        .popover(isPresented: $open, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(AsrModelChoice.offered) { m in
+                    Button {
+                        open = false
+                        guard m != current, canSwitch else { return }
+                        AsrModelChoice.current = m
+                        AppLog.write("asr model selected: \(m.rawValue)")
+                        Task { await modelStore.reload() }
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(m.title).fontWeight(.medium)
+                                    if m.isStreaming {
+                                        Text(L("Streaming").uppercased())
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(Color.accentColor)
+                                    }
+                                }
+                                Text(m.summary).font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            if m == current {
+                                Text(L("Active")).font(.caption).foregroundStyle(.green)
+                            } else if !downloaded.contains(m) {
+                                Text(L("~%d MB", m.sizeMB)).font(.caption).foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                        .background(m == current ? Color.accentColor.opacity(0.10) : Color.clear)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSwitch && m != current)
+                }
+                if !canSwitch {
+                    Divider()
+                    Text(loading ? L("Loading models…") : L("Finish the current recording before switching models."))
+                        .font(.caption).foregroundStyle(.secondary)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                }
+            }
+            .frame(width: 300)
+            .padding(.vertical, 4)
+            .onAppear { downloaded = Set(AsrModelChoice.offered.filter { $0.isDownloaded }) }
         }
     }
 }
@@ -481,8 +562,6 @@ struct LiveView: View {
                     Button(L("Open System Settings")) { session.openPermissionSettings() }
                 }
             }
-            Button(L("Import audio…")) { pickAudioFile() }
-                .disabled(!acceptsImport)
             Button(L("Copy transcript")) { session.copyTranscript() }
                 .disabled(session.segments.isEmpty)
             Button(L("Open sessions folder")) { session.revealSessionFolder() }
