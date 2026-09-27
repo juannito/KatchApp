@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.13.3 — 2026-09-27
+
+- Streaming model: word timestamps are shifted back by the RNN-T emission lag (~0.32 s, measured against Parakeet on the same audio), so short turns no longer drift onto the next speaker.
+
 ## 0.13.2 — 2026-09-27
 
 - Model switcher at the bottom of the sidebar (current model, popover with the list, Active and Streaming tags). The "Import audio…" footer button is gone; drop a file or click the empty area instead.

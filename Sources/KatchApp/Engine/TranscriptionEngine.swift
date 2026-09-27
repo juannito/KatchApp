@@ -37,6 +37,10 @@ actor TranscriptionEngine {
     private static let streamingCommitDelay = 1.5   // seconds a word must be "in the past" to be committed
     private static let streamingCommitEvery = 16000 // samples between commit passes (1 s)
     private static let streamingWarmupSamples = 8000 // 0.5 s of silence fed before real audio
+    /// RNN-T emits each token a few encoder frames after the sound: measured ~0.32 s against
+    /// Parakeet's alignments on the same audio. Without this shift a short turn drifts onto
+    /// the next speaker.
+    private static let streamingEmissionLag = 0.32
     private let vad: VadManager
     private let diarizer: Nemotron3Diarizer
     private let fingerprinter: VoiceFingerprinter?
@@ -166,9 +170,9 @@ actor TranscriptionEngine {
 
     /// Turns stable words (older than the commit delay) into segments; the rest is a partial.
     private func commitStreamingWords(_ timings: [TokenTiming], force: Bool) {
-        let warm = Double(Self.streamingWarmupSamples) / Double(Self.sampleRate)
+        let shift = Double(Self.streamingWarmupSamples) / Double(Self.sampleRate) + Self.streamingEmissionLag
         let words = buildWordTimings(from: timings).map {
-            WordTiming(word: $0.word, startTime: max(0, $0.startTime - warm), endTime: max(0, $0.endTime - warm))
+            WordTiming(word: $0.word, startTime: max(0, $0.startTime - shift), endTime: max(0, $0.endTime - shift))
         }
         guard words.count > streamingCommitted else {
             if force { continuation.yield(.partial("")) }

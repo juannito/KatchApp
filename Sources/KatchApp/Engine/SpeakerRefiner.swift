@@ -129,6 +129,11 @@ actor SpeakerRefiner {
         }
         flush()
         let changed = zip(before, words.map(\.speaker)).filter { $0 != $1 }.count
+        if ProcessInfo.processInfo.environment["KATCHAPP_DEBUG_STREAM"] != nil {
+            for (i, w) in words.enumerated() where w.start > 18 && w.start < 24 {
+                print(String(format: "[attr] %6.2f-%6.2f live=%@ refined=%@ %@", w.start, w.end, before[i].map(String.init) ?? "-", w.speaker.map(String.init) ?? "-", w.text))
+            }
+        }
         AppLog.write("speaker refinement: \(changed)/\(words.count) words changed, \(newSpeakers) new speakers")
         return Result(segments: out, changedWords: changed, totalWords: words.count, newSpeakers: newSpeakers)
     }
