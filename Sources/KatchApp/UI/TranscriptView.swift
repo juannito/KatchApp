@@ -23,6 +23,8 @@ struct TranscriptListView: View {
     var playhead: Double? = nil
     /// Called when a turn is clicked (seek).
     var onSelectTurn: ((TranscriptSegment) -> Void)? = nil
+    /// Streaming ASR: text not yet committed, shown dimmed at the end.
+    var partial: String = ""
 
     private var playingTurnID: UUID? {
         guard let t = playhead else { return nil }
@@ -54,6 +56,12 @@ struct TranscriptListView: View {
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { onSelectTurn?(turn) }
                     }
+                    if !partial.isEmpty {
+                        HStack(alignment: .top, spacing: 12) {
+                            Circle().fill(Color.gray.opacity(0.3)).frame(width: 10, height: 10).padding(.top, 6)
+                            Text(partial).font(.body).italic().foregroundStyle(.tertiary)
+                        }
+                    }
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding(20)
@@ -61,6 +69,9 @@ struct TranscriptListView: View {
             }
             .onChange(of: turns.count) { _, _ in
                 if autoScroll { withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
+            }
+            .onChange(of: partial) { _, _ in
+                if autoScroll { proxy.scrollTo("bottom", anchor: .bottom) }
             }
             .onChange(of: focusID) { _, id in
                 if let id { withAnimation { proxy.scrollTo(id, anchor: .center) } }

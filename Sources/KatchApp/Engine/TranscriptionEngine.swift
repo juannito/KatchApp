@@ -9,6 +9,8 @@ actor TranscriptionEngine {
         case attributed(replacing: UUID, with: [TranscriptSegment])
         case speakerMicFraction([Int: Double])
         case speakerEmbedding(slot: Int, embedding: [Float])
+        /// Streaming ASR: words heard but not yet committed (may still change).
+        case partial(String)
         case vad(Float)
         case warning(String)
     }
@@ -27,7 +29,14 @@ actor TranscriptionEngine {
     private static let vadBlock = VadManager.chunkSize  // 4096 samples = 256 ms
     private static let frameSeconds = 0.01
 
-    private let asr: AsrManager
+    private let asr: AsrManager?
+    private let streamingShared: SharedNemotronMultilingualModels?
+    private var streamingAsr: StreamingNemotronMultilingualAsrManager?
+    private var streamingCommitted = 0          // words already turned into segments
+    private var streamingLastCommit = 0         // sample position of the last commit pass
+    private static let streamingCommitDelay = 1.5   // seconds a word must be "in the past" to be committed
+    private static let streamingCommitEvery = 16000 // samples between commit passes (1 s)
+    private static let streamingWarmupSamples = 8000 // 0.5 s of silence fed before real audio
     private let vad: VadManager
     private let diarizer: Nemotron3Diarizer
     private let fingerprinter: VoiceFingerprinter?
@@ -71,6 +80,7 @@ actor TranscriptionEngine {
 
     init(models: LoadedModels, config: Config = Config()) {
         self.asr = models.asr
+        self.streamingShared = models.streamingAsr
         self.vad = models.vad
         self.diarizer = Nemotron3Diarizer(config: models.diarizerConfig, models: models.diarizerModels)
         self.fingerprinter = models.fingerprinter
@@ -104,18 +114,92 @@ actor TranscriptionEngine {
             continuation.yield(.warning("Diarization: \(error.localizedDescription)"))
         }
 
-        // VAD + segmentation
-        vadPending.append(contentsOf: samples)
-        while vadPending.count >= Self.vadBlock {
-            let block = Array(vadPending[0..<Self.vadBlock])
-            vadPending.removeFirst(Self.vadBlock)
-            let blockStart = vadConsumed
-            vadConsumed += Self.vadBlock
-            await processVadBlock(block, start: blockStart)
+        if streamingShared != nil {
+            await pushStreaming(samples)
+        } else {
+            // VAD + segmentation
+            vadPending.append(contentsOf: samples)
+            while vadPending.count >= Self.vadBlock {
+                let block = Array(vadPending[0..<Self.vadBlock])
+                vadPending.removeFirst(Self.vadBlock)
+                let blockStart = vadConsumed
+                vadConsumed += Self.vadBlock
+                await processVadBlock(block, start: blockStart)
+            }
         }
 
         resolvePending(force: false)
         scheduleLiveEmbeddings()
+    }
+
+    // MARK: - Streaming ASR (Nemotron 3.5)
+
+    private func streamingManager() async throws -> StreamingNemotronMultilingualAsrManager? {
+        guard let shared = streamingShared else { return nil }
+        if let streamingAsr { return streamingAsr }
+        let m = StreamingNemotronMultilingualAsrManager()
+        try await m.loadFromShared(shared)
+        await m.setLanguage(ProcessInfo.processInfo.environment["KATCHAPP_NEMOTRON_PROMPT"] ?? "auto")
+        // Warm-up: the first chunk of a fresh stream tends to drop the opening word, so feed
+        // half a second of silence first and shift every timestamp back by that amount.
+        _ = try await m.process(samples: [Float](repeating: 0, count: Self.streamingWarmupSamples))
+        streamingAsr = m
+        return m
+    }
+
+    private func pushStreaming(_ samples: [Float]) async {
+        do {
+            guard let m = try await streamingManager() else { return }
+            _ = try await m.process(samples: samples)
+            // Cheap voice indicator for the level meter (no VAD in this path).
+            var energy: Float = 0
+            for v in samples { energy += v * v }
+            continuation.yield(.vad(min(1, (energy / Float(max(samples.count, 1))).squareRoot() * 12)))
+            if totalSamples - streamingLastCommit >= Self.streamingCommitEvery {
+                streamingLastCommit = totalSamples
+                commitStreamingWords(await m.getTokenTimings(), force: false)
+            }
+        } catch {
+            continuation.yield(.warning("ASR (streaming): \(error.localizedDescription)"))
+        }
+    }
+
+    /// Turns stable words (older than the commit delay) into segments; the rest is a partial.
+    private func commitStreamingWords(_ timings: [TokenTiming], force: Bool) {
+        let warm = Double(Self.streamingWarmupSamples) / Double(Self.sampleRate)
+        let words = buildWordTimings(from: timings).map {
+            WordTiming(word: $0.word, startTime: max(0, $0.startTime - warm), endTime: max(0, $0.endTime - warm))
+        }
+        guard words.count > streamingCommitted else {
+            if force { continuation.yield(.partial("")) }
+            return
+        }
+        let now = Double(totalSamples) / Double(Self.sampleRate)
+        let pending = Array(words[streamingCommitted...])
+        // The last pending word may still be growing (its pieces arrive over several chunks),
+        // so it is never committed until the next word exists or the stream ends.
+        let candidates = force ? pending : Array(pending.dropLast())
+        let stable = force ? pending : candidates.filter { $0.endTime <= now - Self.streamingCommitDelay }
+        let tail = pending.dropFirst(stable.count)
+        continuation.yield(.partial(tail.map(\.word).joined(separator: " ")))
+        guard !stable.isEmpty else { return }
+        streamingCommitted += stable.count
+        // Group into segments at gaps > 1 s so attribution and turns stay natural.
+        var group: [Word] = []
+        func flush() {
+            guard let f = group.first, let l = group.last else { return }
+            let seg = TranscriptSegment(start: f.start, end: l.end, speaker: nil, attributed: false, words: group)
+            pendingAttribution.append(seg)
+            continuation.yield(.transcribed(seg))
+            group = []
+        }
+        for w in stable {
+            let text = w.word.replacingOccurrences(of: "<unk>", with: "").trimmingCharacters(in: .whitespaces)
+            guard !text.isEmpty else { continue }
+            if let last = group.last, w.startTime - last.end > 1.0 { flush() }
+            group.append(Word(text: text, start: w.startTime, end: max(w.endTime, w.startTime + 0.05)))
+        }
+        flush()
     }
 
     /// Fingerprints speakers while recording: whenever a slot has accumulated enough new
@@ -158,8 +242,20 @@ actor TranscriptionEngine {
     func finish() async {
         guard !finished else { return }
         finished = true
-        // Flush open speech
-        if speechActive {
+        if let m = streamingAsr {
+            do {
+                let (text, timings) = try await m.finishWithTokenTimings()
+                if ProcessInfo.processInfo.environment["KATCHAPP_DEBUG_STREAM"] != nil {
+                    print("[stream] final text: \(text)")
+                    print("[stream] tokens: \(timings.prefix(40).map { "\($0.token)@\(String(format: "%.2f", $0.startTime))" }.joined(separator: " "))")
+                    print("[stream] language: \(await m.detectedLanguage() ?? "?")")
+                }
+                commitStreamingWords(timings, force: true)
+            } catch {
+                continuation.yield(.warning("ASR (streaming finish): \(error.localizedDescription)"))
+            }
+        } else if speechActive {
+            // Flush open speech
             closeSegment(end: totalSamples)
             speechActive = false
         }
@@ -284,6 +380,7 @@ actor TranscriptionEngine {
             let job = asrQueue.removeFirst()
             let startSeconds = Double(job.start) / Double(Self.sampleRate)
             do {
+                guard let asr else { continue }
                 var state = TdtDecoderState.make()
                 let result = try await asr.transcribe(job.samples, decoderState: &state)
                 let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)

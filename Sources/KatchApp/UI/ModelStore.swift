@@ -37,4 +37,11 @@ final class ModelStore: ObservableObject {
         state = .idle
         await loadIfNeeded()
     }
+
+    /// Reloads every model (used after the user picks another speech model).
+    func reload() async {
+        models = nil
+        state = .idle
+        await loadIfNeeded()
+    }
 }

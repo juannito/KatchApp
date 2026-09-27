@@ -68,7 +68,8 @@ Contá con **~3 GB libres** para compilar y usar, o ~1,5 GB si solo corrés una 
 9. **Proyectos.** Al guardar elegís un proyecto (una subcarpeta) o creás uno nuevo. El filtro de carpeta en la barra lateral muestra un proyecto, los sin proyecto o todos. Un proyecto se puede **ocultar** (menú del filtro o Ajustes): desaparece de la barra y del historial hasta que activás "Mostrar proyectos ocultos", que se resetea en cada arranque. Pensado para compartir pantalla sin exponer otros proyectos.
 10. **Resumen con LLM (opcional).** En Ajustes > Resumen elegís proveedor: **Ollama** (local; la app lista los modelos instalados y descarga el que elijas), **OpenAI-compatible** (OpenAI, LM Studio, OpenRouter, vLLM) o **Anthropic**. Las claves van al Llavero. Con "resumen automático" activado se genera al guardar; si no, cada sesión tiene un botón **Generar resumen** en la pestaña Resumen. Salida: resumen, decisiones, acciones con responsable y fecha, y seguimientos. Las instrucciones son editables; el formato es fijo. Queda en `summary.md` y `summary.json`.
 11. **Plataforma, captura por app y detección de reuniones.** KatchApp mira qué procesos tienen audio en Core Audio. Al grabar, etiqueta la sesión con la app de reunión activa (Zoom, Teams, Meet en el navegador, FaceTime, WhatsApp…) y, con el modo "solo la app de la reunión" (por defecto), captura únicamente el audio de esa app en lugar de todo el sistema; si no hay ninguna, graba todo. En Ajustes > Reuniones se puede activar la detección: cuando una app de reunión empieza a usar el micrófono, KatchApp pregunta si grabar. Para que sirva en cada reunión, "Abrir KatchApp al iniciar sesión". La lista de apps de reunión es editable: renombrar, marcar apps desconocidas o desmarcar conocidas.
-12. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). KatchApp guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
+12. **Modelos de voz** (Ajustes > Modelos): Parakeet TDT v3 (por defecto, 25 idiomas), Nemotron 3.5 ASR Streaming (el texto aparece cada segundo mientras hablan, ~40 idiomas con detección automática, algo menos preciso), Parakeet Ultra (el más preciso) y Parakeet Redux (la descarga más liviana). Todos dan tiempos por palabra; al cambiar se descarga el modelo la primera vez. Whisper y Canary no se ofrecen porque devuelven texto sin tiempo por palabra, que la separación de hablantes necesita.
+13. **Contactos y reconocimiento de voz.** Al guardar, cada hablante puede vincularse a un contacto (o crear uno). KatchApp guarda una huella de voz (embedding CAM++, 192 números, local) por contacto. En la próxima reunión, si una voz se parece a un contacto conocido, el diálogo de guardado sugiere "Parece ser X (85%)" y vos confirmás. Cada contacto tiene foto, nombre y la lista de conversaciones en las que participó. Los datos viven en `contacts.json` y `avatars/` dentro de la carpeta de sesiones.
 
 ## Self-test sin UI
 
@@ -86,12 +87,11 @@ Sources/KatchApp/
   Model/     tipos del transcript y export a Markdown/JSON
   UI/        SwiftUI
 scripts/     build-app.sh, make-test-audio.sh
-doc/         investigación de modelos y pipeline
 ```
 
 ## Decisiones y límites conocidos
 
-- Pipeline en cascada: ASR sobre segmentos de voz (VAD) + diarización en streaming sobre todo el audio; cada palabra se asigna al hablante con más actividad en su intervalo. Ver `doc/research-realtime-stt-diarization.md`.
+- Pipeline en cascada: ASR sobre segmentos de voz (VAD) + diarización en streaming sobre todo el audio; cada palabra se asigna al hablante con más actividad en su intervalo. 
 - Máximo 8 hablantes (límite del modelo). Si hay más, se fusionan en los existentes.
 - Con parlantes (sin auriculares) el micrófono recaptura a los remotos; no hay cancelación de eco todavía. Con auriculares no hay problema.
 - Preset de diarización `low` (1 s de latencia, perfil de referencia de NVIDIA). Se puede cambiar con la variable de entorno `MEETAI_DIAR_PRESET` (`fast32`, `fast128`, `verylow`, `ultra`…).

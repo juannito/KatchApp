@@ -3,7 +3,11 @@ import FluidAudio
 import Foundation
 
 struct LoadedModels: @unchecked Sendable {
-    let asr: AsrManager
+    let asrChoice: AsrModelChoice
+    /// Parakeet (segment) ASR, nil when the streaming model is selected.
+    let asr: AsrManager?
+    /// Nemotron 3.5 streaming ASR shared weights, nil otherwise.
+    let streamingAsr: SharedNemotronMultilingualModels?
     let vad: VadManager
     let diarizerModels: Nemotron3Models
     let diarizerConfig: Nemotron3Config
@@ -33,12 +37,22 @@ enum ModelLoader {
             progress("Downloading VAD (Silero)…", p.fractionCompleted)
         })
 
-        progress("Downloading ASR (Parakeet TDT 0.6B v3)…", 0)
-        let asrModels = try await AsrModels.downloadAndLoad(
-            version: .v3,
-            progressHandler: { p in progress("Downloading ASR (Parakeet TDT 0.6B v3)…", p.fractionCompleted) })
-        let asr = AsrManager(config: .default)
-        try await asr.loadModels(asrModels)
+        let choice = AsrModelChoice.current
+        progress("Downloading ASR (\(choice.title))…", 0)
+        var asr: AsrManager? = nil
+        var streaming: SharedNemotronMultilingualModels? = nil
+        if let version = choice.parakeetVersion {
+            let asrModels = try await AsrModels.downloadAndLoad(
+                version: version,
+                progressHandler: { p in progress("Downloading ASR (\(choice.title))…", p.fractionCompleted) })
+            let manager = AsrManager(config: .default)
+            try await manager.loadModels(asrModels)
+            asr = manager
+        } else {
+            streaming = try await StreamingNemotronMultilingualAsrManager.downloadAndPreloadShared(
+                languageCode: AsrModelChoice.nemotronLanguage, chunkMs: AsrModelChoice.nemotronChunkMs,
+                progressHandler: { p in progress("Downloading ASR (\(choice.title))…", p.fractionCompleted) })
+        }
 
         progress("Downloading diarization (Nemotron 3)…", 0)
         let diar = try await Nemotron3Models.loadFromHuggingFace(
@@ -54,8 +68,8 @@ enum ModelLoader {
         }
 
         progress("Models ready", 1)
-        AppLog.write("models ready (diarizer preset: \(diarizerConfig.modelFileName), voice id: \(fingerprinter != nil))")
+        AppLog.write("models ready (asr: \(choice.rawValue), diarizer preset: \(diarizerConfig.modelFileName), voice id: \(fingerprinter != nil))")
         return LoadedModels(
-            asr: asr, vad: vad, diarizerModels: diar, diarizerConfig: diarizerConfig, fingerprinter: fingerprinter)
+            asrChoice: choice, asr: asr, streamingAsr: streaming, vad: vad, diarizerModels: diar, diarizerConfig: diarizerConfig, fingerprinter: fingerprinter)
     }
 }

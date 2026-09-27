@@ -30,6 +30,8 @@ final class RecordingSession: ObservableObject {
     @Published var systemAudioEnabled = true
     /// Mute (space bar) silences the mic without stopping capture.
     @Published var micMuted = false { didSet { mixBus?.micMuted = micMuted } }
+    /// Streaming ASR: words heard but not yet committed.
+    @Published var partialText = ""
     static let systemAudioDefaultsKey = "captureSystemAudio"
     private var pausedAt: Date?
     private var pausedTotal: TimeInterval = 0
@@ -532,6 +534,7 @@ final class RecordingSession: ObservableObject {
         speakerNames = [:]
         speakerMicFraction = [:]
         platformName = nil
+        partialText = ""
         elapsed = 0
         message = nil
     }
@@ -559,6 +562,8 @@ final class RecordingSession: ObservableObject {
             } else {
                 segments.append(contentsOf: replacement)
             }
+        case .partial(let text):
+            partialText = text
         case .speakerMicFraction(let fractions):
             for (k, v) in fractions { speakerMicFraction[k] = v }
         case .speakerEmbedding(let slot, let embedding):

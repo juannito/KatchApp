@@ -383,7 +383,8 @@ struct LiveView: View {
             turns: SessionDocument.mergeTurns(session.segments),
             names: session.liveNames,
             emptyText: emptyText,
-            emptyDetail: acceptsImport ? L("Click to choose a file") : nil
+            emptyDetail: acceptsImport ? L("Click to choose a file") : nil,
+            partial: session.partialText
         )
         .contentShape(Rectangle())
         // Only the empty, idle view is clickable; with a transcript, rows keep their own gestures.
@@ -772,7 +773,7 @@ struct ModelStatusView: View {
                 Text(L(step)).font(.callout).foregroundStyle(.secondary)
             }
         case .ready:
-            Label(L("Models ready (Parakeet v3 + Nemotron 3, 100% local)"), systemImage: "checkmark.circle.fill")
+            Label(L("Models ready (%@ + Nemotron 3, 100% local)", modelStore.models?.asrChoice.shortName ?? "Parakeet"), systemImage: "checkmark.circle.fill")
                 .font(.callout)
                 .foregroundStyle(.green)
         case .failed(let error):

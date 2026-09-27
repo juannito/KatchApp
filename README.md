@@ -70,9 +70,10 @@ Plan on **~3 GB free** to build and run, or ~1.5 GB if you only run a prebuilt a
 9. **Projects** are subfolders. Each project is a collapsible group in History; right-click it to hide it, unhide it or show it in Finder. Hidden projects vanish from the sidebar until you toggle "Show hidden projects" (eye button, ⌥⌘H), which resets on every launch — handy when sharing your screen. The folder button creates a project.
 10. **Contacts and voice recognition.** Each contact stores a local voice fingerprint (CAM++ embedding, 192 floats), a photo, an optional "This is me" flag and the list of conversations they took part in. Linking a speaker of an old session computes the fingerprint on demand from `audio.wav`. Data lives in `contacts.json` and `avatars/` inside the sessions folder.
 11. **Summaries (optional).** Settings > Summary: choose **Ollama** (local; the app lists installed models and downloads the one you pick), **OpenAI-compatible** (OpenAI, LM Studio, OpenRouter, vLLM) or **Anthropic**. API keys go to the Keychain. With "auto summary" on, minutes are generated on save; otherwise each session has a **Generate summary** button in its Summary tab. Output: summary, decisions, action items with owner and due date, follow-ups. Instructions are editable; the output format is fixed. Stored as `summary.md` and `summary.json`.
-12. **Meeting platform, per-app capture and detection.** KatchApp looks at which processes have audio in Core Audio. Recordings are tagged with the active meeting app (Zoom, Teams, Meet in a browser, FaceTime, WhatsApp…). With "only the meeting app" (default) it captures just that app's audio instead of everything; if none is running it captures everything. Settings > Meetings can enable detection: when a meeting app starts using the microphone, KatchApp asks whether to record. "Open KatchApp at login" keeps it ready. The list of meeting apps is editable: rename, mark unknown apps, unmark known ones.
-13. **Settings** (⌘,): language (English default, Spanish), theme (sun/moon button in the header, ⌥⌘D), sessions folder, projects, meetings, summary, About. Default sessions folder: `~/Documents/KatchApp/<project>/<date>/` with `transcript.md`, `transcript.json` and `audio.wav`.
-14. **Tab** shows or hides the sidebar (except while typing in a text field).
+12. **Speech models** (Settings > Models): Parakeet TDT v3 (default, 25 languages), Nemotron 3.5 ASR Streaming (text appears every second while people talk, ~40 languages auto-detected, slightly less accurate), Parakeet Ultra (most accurate) and Parakeet Redux (lightest download). All give word timestamps; switching downloads the model on first use. Whisper and Canary are not offered because they return text without per-word timing, which speaker separation needs.
+13. **Meeting platform, per-app capture and detection.** KatchApp looks at which processes have audio in Core Audio. Recordings are tagged with the active meeting app (Zoom, Teams, Meet in a browser, FaceTime, WhatsApp…). With "only the meeting app" (default) it captures just that app's audio instead of everything; if none is running it captures everything. Settings > Meetings can enable detection: when a meeting app starts using the microphone, KatchApp asks whether to record. "Open KatchApp at login" keeps it ready. The list of meeting apps is editable: rename, mark unknown apps, unmark known ones.
+14. **Settings** (⌘,): language (English default, Spanish), theme (sun/moon button in the header, ⌥⌘D), sessions folder, projects, meetings, summary, About. Default sessions folder: `~/Documents/KatchApp/<project>/<date>/` with `transcript.md`, `transcript.json` and `audio.wav`.
+15. **Tab** shows or hides the sidebar (except while typing in a text field).
 
 ## Headless self-test
 
@@ -93,12 +94,11 @@ Sources/KatchApp/
   Model/     transcript types, Markdown/JSON export, summary model
   UI/        SwiftUI
 scripts/     build-app.sh, bump-version.sh, make-test-audio.sh
-doc/         model and pipeline research
 ```
 
 ## Design decisions and known limits
 
-- Cascade pipeline: ASR over voiced segments (VAD) + streaming diarization over the whole audio; each word goes to the speaker with the most activity in its interval. See `doc/research-realtime-stt-diarization.md`.
+- Cascade pipeline: ASR (per voiced segment with Parakeet, or continuous with Nemotron 3.5 streaming) + streaming diarization over the whole audio; each word goes to the speaker with the most activity in its interval.
 - At most 8 speakers (model limit). Extra voices are merged into existing ones.
 - Without headphones the microphone re-captures the remote side; there is no echo cancellation yet. Headphones avoid it.
 - Diarizer preset `low` (1 s latency, NVIDIA's reference streaming profile). Override with the `MEETAI_DIAR_PRESET` environment variable (`fast32`, `fast128`, `verylow`, `ultra`…).

@@ -7,6 +7,8 @@ struct SettingsView: View {
                 .tabItem { Label(L("General"), systemImage: "gearshape") }
             MeetingsSettingsView()
                 .tabItem { Label(L("Meetings"), systemImage: "video") }
+            ModelsSettingsView()
+                .tabItem { Label(L("Models"), systemImage: "cpu") }
             SummarySettingsView()
                 .tabItem { Label(L("Summary"), systemImage: "text.badge.checkmark") }
             AboutView()
@@ -304,4 +306,111 @@ struct MeetingsSettingsView: View {
     }
 
     private func reload() { apps = registry.allApps() }
+}
+
+
+/// Speech-recognition model picker. Switching reloads the models (download on first use).
+struct ModelsSettingsView: View {
+    @EnvironmentObject var modelStore: ModelStore
+    @EnvironmentObject var session: RecordingSession
+    @State private var selected: AsrModelChoice = .current
+    @State private var downloaded: Set<AsrModelChoice> = []
+    @State private var sizes: [AsrModelChoice: Int64] = [:]
+    @State private var confirmDelete: AsrModelChoice?
+
+    private var busy: Bool {
+        if case .loading = modelStore.state { return true }
+        return session.status != .idle
+    }
+
+    var body: some View {
+        Form {
+            Section(L("Speech recognition")) {
+                ForEach(AsrModelChoice.offered) { m in
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: selected == m ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(selected == m ? Color.accentColor : Color.secondary)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 8) {
+                                Text(m.title).fontWeight(.medium)
+                                if modelStore.models?.asrChoice == m {
+                                    Text(L("Active")).font(.caption).foregroundStyle(.green)
+                                }
+                                if downloaded.contains(m) {
+                                    Text(L("Downloaded · %@", ByteCountFormatter.string(fromByteCount: sizes[m] ?? 0, countStyle: .file)))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                } else {
+                                    Text(L("~%d MB download", m.sizeMB)).font(.caption).foregroundStyle(.tertiary)
+                                }
+                            }
+                            Text(m.summary).font(.callout).foregroundStyle(.secondary)
+                            Text(m.languages).font(.caption).foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        if downloaded.contains(m), modelStore.models?.asrChoice != m {
+                            Button { confirmDelete = m } label: { Image(systemName: "trash") }
+                                .buttonStyle(.borderless)
+                                .help(L("Delete the downloaded files"))
+                        }
+                        Link(destination: m.repoURL) { Image(systemName: "arrow.up.right.square") }
+                            .help(L("Model card"))
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { if !busy { select(m) } }
+                    .padding(.vertical, 4)
+                }
+                if case .loading(let step, let fraction) = modelStore.state {
+                    HStack(spacing: 8) {
+                        ProgressView(value: fraction).frame(width: 160)
+                        Text(L(step)).font(.callout).foregroundStyle(.secondary)
+                    }
+                } else if session.status != .idle {
+                    Text(L("Finish the current recording before switching models.")).font(.caption).foregroundStyle(.secondary)
+                }
+                Text(L("Every model runs on the Neural Engine and gives word timestamps, which speaker separation and playback need. Whisper and Canary are not offered: they return text without per-word timing. Models are stored in ~/Library/Application Support/FluidAudio/Models."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("Also loaded")) {
+                LabeledContent("Nemotron 3 Diarization") { Text(L("Speaker separation, up to 8 voices")).foregroundStyle(.secondary) }
+                LabeledContent("Silero VAD") { Text(L("Voice activity detection")).foregroundStyle(.secondary) }
+                LabeledContent("CAM++") { Text(L("Voice fingerprints for contacts")).foregroundStyle(.secondary) }
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.vertical, 8)
+        .onAppear(perform: refresh)
+        .onReceive(modelStore.$state) { _ in refresh() }
+        .alert(L("Delete the downloaded files for %@?", confirmDelete?.title ?? ""), isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } })) {
+            Button(L("Delete"), role: .destructive) {
+                if let m = confirmDelete { try? m.deleteDownload() }
+                confirmDelete = nil
+                refresh()
+            }
+            Button(L("Cancel"), role: .cancel) { confirmDelete = nil }
+        } message: {
+            Text(L("They will be downloaded again if you select this model later."))
+        }
+    }
+
+    private func select(_ m: AsrModelChoice) {
+        guard m != selected || modelStore.models?.asrChoice != m else { return }
+        selected = m
+        AsrModelChoice.current = m
+        AppLog.write("asr model selected: \(m.rawValue)")
+        Task { await modelStore.reload() }
+    }
+
+    private func refresh() {
+        selected = .current
+        Task.detached {
+            let found = AsrModelChoice.allCases.filter { $0.isDownloaded }
+            let d = Set(found)
+            let s = Dictionary(uniqueKeysWithValues: found.map { ($0, $0.downloadedSize) })
+            await MainActor.run {
+                downloaded = d
+                sizes = s
+            }
+        }
+    }
 }

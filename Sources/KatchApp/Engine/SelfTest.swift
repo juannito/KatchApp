@@ -72,6 +72,7 @@ enum SelfTest {
                     }
                 case .speakerMicFraction(let f): for (k, v) in f { fractions[k] = v }
                 case .speakerEmbedding(let slot, _): print("[selftest] live embedding for spk\(slot)")
+                case .partial: break
                 case .warning(let w): warnings.append(w)
                 case .vad: break
                 }

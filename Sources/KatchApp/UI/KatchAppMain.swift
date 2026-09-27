@@ -57,6 +57,11 @@ struct KatchAppMain: App {
                     if let models = modelStore.models {
                         session.attach(models: models, store: sessionStore, contacts: contacts, meetingApps: meetingApps)
                     }
+                }
+                .onReceive(modelStore.$state) { state in
+                    if state == .ready, let models = modelStore.models {
+                        session.attach(models: models, store: sessionStore, contacts: contacts, meetingApps: meetingApps)
+                    }
                     detector.start { [weak session] in session?.status != .idle }
                 }
                 .onReceive(sessionStore.$rootURL) { url in
@@ -86,6 +91,8 @@ struct KatchAppMain: App {
         Settings {
             SettingsView()
                 .id(language.code)
+                .environmentObject(modelStore)
+                .environmentObject(session)
                 .environmentObject(sessionStore)
                 .environmentObject(language)
                 .environmentObject(summarySettings)

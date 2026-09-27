@@ -2,6 +2,12 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.13.0 — 2026-09-27
+
+- Settings > Models: choose the speech model. Nemotron 3.5 ASR Streaming is new: text shows up every second while people talk instead of after each pause (auto language detection, ~40 languages, offline refinement and voice recognition unchanged). Parakeet Ultra and Redux join Parakeet v3; switching downloads the model on first use and reloads live.
+- Live view shows the streaming model's not-yet-confirmed words dimmed at the end of the transcript.
+- The research notes left the repository (they were the author's working notes, not user docs).
+
 ## 0.12.0 — 2026-09-26
 
 - Continuous speech is now cut at the last dip in voice activity instead of at an arbitrary instant, so a forced cut never splits a word. (Shorter segments were tried and degraded accuracy, so the 15 s maximum stays.)
