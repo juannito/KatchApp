@@ -247,7 +247,6 @@ struct OllamaModelStatusView: View {
 
 struct MeetingsSettingsView: View {
     @EnvironmentObject var registry: MeetingAppRegistry
-    @State private var apps: [MeetingApp] = []
     @State private var launchAtLogin = false
 
     var body: some View {
@@ -276,36 +275,11 @@ struct MeetingsSettingsView: View {
                 Text(L("Detection only works while KatchApp is open. Opening it at login keeps it ready for every meeting."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section(L("Meeting apps")) {
-                Text(L("Apps in this list are tagged as the meeting platform, captured on their own and watched for calls. Rename any app, or mark an app you use for meetings."))
-                    .font(.caption).foregroundStyle(.secondary)
-                ForEach(apps) { app in
-                    HStack(spacing: 10) {
-                        Toggle("", isOn: Binding(get: { app.isMeetingApp }, set: { registry.setMeetingApp(app.bundleID, $0); reload() }))
-                            .labelsHidden()
-                        TextField(app.bundleID, text: Binding(get: { app.name }, set: { registry.rename(app.bundleID, to: $0) }))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 220)
-                            .onSubmit(reload)
-                        Text(app.bundleID).font(.caption.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
-                        Spacer()
-                        if app.isRunning {
-                            Label(L("running"), systemImage: "circle.fill").font(.caption).foregroundStyle(.green)
-                        }
-                    }
-                }
-                Button(L("Refresh")) { reload() }
-            }
         }
         .formStyle(.grouped)
         .padding(.vertical, 8)
-        .onAppear {
-            reload()
-            launchAtLogin = registry.launchAtLogin
-        }
+        .onAppear { launchAtLogin = registry.launchAtLogin }
     }
-
-    private func reload() { apps = registry.allApps() }
 }
 
 

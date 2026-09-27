@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.13.1 — 2026-09-27
+
+- Settings > Meetings no longer lists individual apps; the built-in list (Zoom, Teams, Meet in browsers, FaceTime, WhatsApp…) is applied silently.
+
 ## 0.13.0 — 2026-09-27
 
 - Settings > Models: choose the speech model. Nemotron 3.5 ASR Streaming is new: text shows up every second while people talk instead of after each pause (auto language detection, ~40 languages, offline refinement and voice recognition unchanged). Parakeet Ultra and Redux join Parakeet v3; switching downloads the model on first use and reloads live.
