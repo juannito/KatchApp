@@ -313,6 +313,7 @@ enum L10n {
             "Delete everything": "Eliminar todo",
             "Audio deleted": "Audio eliminado",
             "Actions": "Acciones",
+            "Download as Markdown…": "Descargar como Markdown…",
             "Delete…": "Eliminar…",
             "Regenerate the summary": "Regenerar el resumen",
             "Regenerate the summary?": "¿Regenerar el resumen?",

@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.14.0 — 2026-09-28
+
+- "Download as Markdown…" in the session actions menu: saves one .md with the header, the summary (when there is one) and then the transcript.
+
 ## 0.13.4 — 2026-09-27
 
 - Switching speech models: models already loaded in the session are kept in memory, so switching back is instant; the status says "Loading" instead of "Downloading" when the files are already on disk; the Models tab now detects the downloaded Nemotron variant.

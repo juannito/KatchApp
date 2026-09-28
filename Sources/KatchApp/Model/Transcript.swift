@@ -162,6 +162,20 @@ extension SessionDocument {
         return out
     }
 
+    /// Full export: header, summary (when available) and the transcript.
+    func exportMarkdown(summary: MeetingSummary?) -> String {
+        var md = markdown()
+        guard let summary else { return md }
+        // Insert the summary before the transcript heading.
+        let marker = "## \(L("Transcript"))"
+        if let r = md.range(of: marker) {
+            md.replaceSubrange(r.lowerBound..<r.lowerBound, with: summary.markdown() + "\n")
+        } else {
+            md += "\n" + summary.markdown()
+        }
+        return md
+    }
+
     func markdown() -> String {
         let df = DateFormatter()
         df.dateStyle = .long

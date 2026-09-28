@@ -236,6 +236,7 @@ struct SessionDetailView: View {
                         NSPasteboard.general.setString(s.markdown(), forType: .string)
                     }
                 }
+                Button(L("Download as Markdown…")) { exportMarkdown(doc) }
                 Divider()
                 if hasAudio {
                     Button(L("Open audio")) { NSWorkspace.shared.open(summary.folder.appendingPathComponent(SessionStore.audioFile)) }
@@ -299,6 +300,28 @@ struct SessionDetailView: View {
                 folderSize = size
                 audioSize = audio
             }
+        }
+    }
+
+    /// Save sheet with summary (if any) followed by the transcript, speaker names resolved.
+    private func exportMarkdown(_ doc: SessionDocument) {
+        var d = doc
+        d.speakerNames = doc.effectiveNames(contactNames: contactNames)
+        let text = d.exportMarkdown(summary: SummaryService.read(at: summary.folder))
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "md") ?? .plainText]
+        panel.canCreateDirectories = true
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let safeTitle = doc.displayTitle.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        panel.nameFieldStringValue = "\(df.string(from: doc.startedAt)) \(safeTitle).md"
+        panel.title = L("Download as Markdown…")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            AppLog.write("exported markdown: \(url.lastPathComponent)")
+        } catch {
+            AppLog.write("markdown export failed: \(error)")
         }
     }
 
