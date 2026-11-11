@@ -32,11 +32,19 @@ enum ModelLoader {
         let t0 = Date()
         defer { AppLog.write(String(format: "model load finished in %.1fs", Date().timeIntervalSince(t0))) }
         AppLog.write("model load started")
+        // Per-step timings: a cold start is dominated by CoreML compiling for the Neural Engine.
+        // (Loading the models concurrently was measured and is no faster: the compiler serialises.)
+        var lap = Date()
+        func lapLog(_ what: String) {
+            AppLog.write(String(format: "  %@ loaded in %.1fs", what, Date().timeIntervalSince(lap)))
+            lap = Date()
+        }
         progress("Downloading VAD (Silero)…", 0)
         let vad = try await VadManager(config: VadConfig(), progressHandler: { p in
             progress("Downloading VAD (Silero)…", p.fractionCompleted)
         })
 
+        lapLog("VAD")
         let choice = AsrModelChoice.current
         let asrStep = choice.isDownloaded ? "Loading ASR (\(choice.title))…" : "Downloading ASR (\(choice.title))…"
         progress(asrStep, 0)
@@ -55,11 +63,13 @@ enum ModelLoader {
                 progressHandler: { p in progress(asrStep, p.fractionCompleted) })
         }
 
+        lapLog("ASR")
         progress("Downloading diarization (Nemotron 3)…", 0)
         let diar = try await Nemotron3Models.loadFromHuggingFace(
             config: diarizerConfig,
             progressHandler: { p in progress("Downloading diarization (Nemotron 3)…", p.fractionCompleted) })
 
+        lapLog("diarizer")
         progress("Downloading voice ID (CAM++)…", 0)
         var fingerprinter: VoiceFingerprinter? = nil
         do {
@@ -68,6 +78,7 @@ enum ModelLoader {
             AppLog.write("voice fingerprint model unavailable: \(error)")
         }
 
+        lapLog("voice ID")
         progress("Models ready", 1)
         AppLog.write("models ready (asr: \(choice.rawValue), diarizer preset: \(diarizerConfig.modelFileName), voice id: \(fingerprinter != nil))")
         return LoadedModels(

@@ -53,12 +53,15 @@ struct KatchAppMain: App {
                     // macOS "access Documents" prompt never blocks the launch.
                     sessionStore.reload()
                     contacts.reload()
+                    session.attachServices(store: sessionStore, contacts: contacts, meetingApps: meetingApps)
                     await modelStore.loadIfNeeded()
                     if let models = modelStore.models {
                         session.attach(models: models, store: sessionStore, contacts: contacts, meetingApps: meetingApps)
                     }
                 }
                 .onReceive(modelStore.$state) { state in
+                    // Switching speech model: forget the old ones so a new recording waits for the new ones.
+                    if case .loading = state { session.detachModels() }
                     if state == .ready, let models = modelStore.models {
                         session.attach(models: models, store: sessionStore, contacts: contacts, meetingApps: meetingApps)
                     }

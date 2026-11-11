@@ -788,6 +788,15 @@ struct RecordButton: View {
     @EnvironmentObject var modelStore: ModelStore
     @EnvironmentObject var session: RecordingSession
 
+    /// Models still loading is fine (audio is buffered and transcribed once they are ready);
+    /// a failed load or an empty state is not.
+    private var canRecord: Bool {
+        switch modelStore.state {
+        case .ready, .loading: return true
+        case .idle, .failed: return false
+        }
+    }
+
     var body: some View {
         Button {
             Task {
@@ -806,7 +815,7 @@ struct RecordButton: View {
         .buttonStyle(.borderedProminent)
         .tint(session.isRecording ? .red : .accentColor)
         .controlSize(.large)
-        .disabled(!modelStore.isReady || (session.status != .idle && session.status != .recording))
+        .disabled(!canRecord || (session.status != .idle && session.status != .recording))
         .keyboardShortcut("r", modifiers: [.command])
     }
 }

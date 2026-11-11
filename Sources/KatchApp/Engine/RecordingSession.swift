@@ -95,15 +95,41 @@ final class RecordingSession: ObservableObject {
     var speakerSlots: [Int] { Set(segments.compactMap(\.speaker)).sorted() }
     var voiceRecognitionAvailable: Bool { models?.fingerprinter != nil }
 
-    func attach(models: LoadedModels, store: SessionStore, contacts: ContactStore, meetingApps: MeetingAppRegistry) {
-        self.models = models
+    private var modelWaiters: [CheckedContinuation<LoadedModels, Never>] = []
+
+    /// Wires the stores in before the models finish loading, so recording can start right away.
+    func attachServices(store: SessionStore, contacts: ContactStore, meetingApps: MeetingAppRegistry) {
         self.store = store
         self.contacts = contacts
         self.meetingApps = meetingApps
-        if refineOnStop {
+    }
+
+    func attach(models: LoadedModels, store: SessionStore, contacts: ContactStore, meetingApps: MeetingAppRegistry) {
+        attachServices(store: store, contacts: contacts, meetingApps: meetingApps)
+        let isNew = self.models == nil
+        self.models = models
+        let waiters = modelWaiters
+        modelWaiters = []
+        for w in waiters { w.resume(returning: models) }
+        if message == Self.loadingNotice { message = nil }
+        if isNew, refineOnStop {
             Task.detached(priority: .utility) { [refiner] in await refiner.preload() }
         }
     }
+
+    /// Detaches the current models (the user is switching speech model).
+    func detachModels() { models = nil }
+
+    /// Returns the loaded models, suspending until `attach(models:)` delivers them.
+    private func awaitModels() async -> LoadedModels {
+        if let models { return models }
+        return await withCheckedContinuation { modelWaiters.append($0) }
+    }
+
+    private static var loadingNotice: String { L("Models are still loading: recording now, the transcript will appear when they are ready.") }
+
+    /// Recording can begin while models are still loading; transcription catches up afterwards.
+    var modelsPending: Bool { isRecording && models == nil }
 
     /// Looks for a meeting app with audio and tags the session with it (first hit wins).
     private func detectPlatform() {
@@ -122,7 +148,7 @@ final class RecordingSession: ObservableObject {
     // MARK: - Start
 
     func start() async {
-        guard status == .idle, let models, let store else { return }
+        guard status == .idle, let store else { return }
         guard micEnabled || systemAudioEnabled else {
             message = L("Enable at least one audio source.")
             return
@@ -182,21 +208,27 @@ final class RecordingSession: ObservableObject {
         }
         detectPlatform()
 
-        let engine = TranscriptionEngine(models: models)
-        self.engine = engine
-
+        // The engine is built by the feeder once the models are available (immediately when they
+        // already are). Audio queues up in the unbounded stream meanwhile and the WAV is written
+        // as it arrives, so nothing said while the models load is lost.
         let (stream, continuation) = AsyncStream<MixedChunk>.makeStream(bufferingPolicy: .unbounded)
         chunkContinuation = continuation
-        feederTask = Task.detached(priority: .userInitiated) {
-            for await chunk in stream {
-                await engine.push(chunk)
-            }
-            await engine.finish()
+        if models == nil {
+            AppLog.write("recording while models load; transcription will catch up")
+            message = Self.loadingNotice
         }
-        eventTask = Task { [weak self] in
-            for await event in engine.events {
-                self?.handle(event)
+        feederTask = Task { [weak self] in
+            guard let self else { return }
+            let models = await self.awaitModels()
+            let engine = TranscriptionEngine(models: models)
+            self.engine = engine
+            self.eventTask = Task { [weak self] in
+                for await event in engine.events { self?.handle(event) }
             }
+            await Task.detached(priority: .userInitiated) {
+                for await chunk in stream { await engine.push(chunk) }
+                await engine.finish()
+            }.value
         }
 
         let bus = MixBus(micEnabled: micEnabled, sysEnabled: systemAudioEnabled)
@@ -308,7 +340,7 @@ final class RecordingSession: ObservableObject {
     // MARK: - Stop
 
     func stop() async {
-        guard status == .recording || status == .paused, let engine else { return }
+        guard status == .recording || status == .paused else { return }
         pauseFlag.isPaused = false
         status = .finishing
         timer?.invalidate()
@@ -320,6 +352,11 @@ final class RecordingSession: ObservableObject {
         chunkContinuation?.finish()
         await feederTask?.value
         await eventTask?.value
+        guard let engine else {
+            cleanupCapture()
+            status = .idle
+            return
+        }
         await finishSession(engine: engine, log: "recording stopped:")
     }
 

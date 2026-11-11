@@ -349,6 +349,8 @@ enum L10n {
             "me": "yo",
             "This voice comes through your microphone. Is it you (%@)?": "Esta voz entra por tu micrófono. ¿Sos vos (%@)?",
             "Mark your own contact as “This is me” so meetings can suggest you automatically.": "Marcá tu propio contacto como “Este soy yo” para que las reuniones te sugieran automáticamente.",
+            "Models are still loading: recording now, the transcript will appear when they are ready.":
+                "Los modelos todavía están cargando: ya se está grabando, la transcripción aparecerá cuando estén listos.",
             "Installed models": "Modelos instalados",
             "Refresh": "Actualizar",
             "Ollama is not running or unreachable at this URL.": "Ollama no está corriendo o no responde en esa URL.",

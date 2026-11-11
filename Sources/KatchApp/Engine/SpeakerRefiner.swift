@@ -13,7 +13,7 @@ actor SpeakerRefiner {
         var newSpeakers: Int
     }
 
-    private var models: Nemotron3Models?
+    private var loading: Task<Nemotron3Models, Error>?
     private static let config = Nemotron3Config.offline
     private static let frameSeconds = 0.01
 
@@ -21,14 +21,21 @@ actor SpeakerRefiner {
         _ = try? await loadModels()
     }
 
-    /// Actor-serialised, so concurrent callers simply wait for the first load.
+    /// Actors are reentrant at every `await`, so the in-flight load is stored as a task: concurrent
+    /// callers (preload at launch and the first refine) share one compilation instead of two.
     private func loadModels() async throws -> Nemotron3Models {
-        if let models { return models }
-        let t0 = Date()
-        let m = try await Nemotron3Models.loadFromHuggingFace(config: Self.config)
-        AppLog.write(String(format: "offline diarizer ready in %.1fs", Date().timeIntervalSince(t0)))
-        models = m
-        return m
+        if let loading { return try await loading.value }
+        let task = Task {
+            let t0 = Date()
+            let m = try await Nemotron3Models.loadFromHuggingFace(config: Self.config)
+            AppLog.write(String(format: "offline diarizer ready in %.1fs", Date().timeIntervalSince(t0)))
+            return m
+        }
+        loading = task
+        do { return try await task.value } catch {
+            loading = nil
+            throw error
+        }
     }
 
     /// - Parameters:

@@ -2,6 +2,12 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.15.0 — 2026-11-11
+
+- You can start recording while the models are still loading. Audio is written to disk immediately and queued; transcription catches up as soon as the models are ready. (Cold starts take ~95 s: CoreML recompiles the models for the Neural Engine whenever macOS has dropped its compiled cache, which it does between sessions. A second launch right after takes <1 s.)
+- Model loading logs per-step timings (VAD, ASR, diarizer, voice ID).
+- Fixed the offline diarizer being loaded and compiled twice at launch (concurrent callers now share one load).
+
 ## 0.14.1 — 2026-11-11
 
 - Recording survives audio-device changes: connecting or disconnecting Bluetooth headphones rebuilds the microphone capture and the system-audio tap on the new default devices (debounced, with retries) instead of going silent. Every rebuild is logged with the device name and sample rate.
