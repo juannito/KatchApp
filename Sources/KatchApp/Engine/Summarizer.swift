@@ -23,13 +23,39 @@ enum SummaryError: LocalizedError {
     }
 }
 
+struct ChatTurn: Sendable {
+    let role: String   // "user" | "assistant"
+    let content: String
+}
+
 protocol Summarizer: Sendable {
     var providerName: String { get }
     var modelName: String { get }
-    func complete(system: String, user: String) async throws -> String
+    func complete(system: String, messages: [ChatTurn]) async throws -> String
 }
 
 extension Summarizer {
+    func complete(system: String, user: String) async throws -> String {
+        try await complete(system: system, messages: [ChatTurn(role: "user", content: user)])
+    }
+
+    /// One turn of the "refine the minutes" conversation. The model sees the transcript and the
+    /// current minutes and answers with a reply plus, only when something must change, the full
+    /// updated minutes.
+    func refine(transcript: String, current: MeetingSummary, meetingTitle: String, history: [ChatTurn], instructions: String) async throws -> (reply: String, updated: MeetingSummary?) {
+        let system = PromptBuilder.chatSystem(instructions: instructions, transcript: transcript, current: current, meetingTitle: meetingTitle)
+        let raw = try await complete(system: system, messages: history)
+        if ProcessInfo.processInfo.environment["KATCHAPP_DEBUG_CHAT"] != nil { print("[raw]\n\(raw)\n[/raw]") }
+        var parsed = PromptBuilder.parseChat(raw)
+        if parsed.updated != nil {
+            parsed.updated?.generatedAt = Date()
+            parsed.updated?.provider = providerName
+            parsed.updated?.model = modelName
+            parsed.updated?.edited = true
+        }
+        return parsed
+    }
+
     func summarize(_ request: SummaryRequest) async throws -> MeetingSummary {
         let system = request.instructions + "\n\n" + PromptBuilder.formatContract
         let user = PromptBuilder.userMessage(request)
@@ -48,6 +74,64 @@ enum PromptBuilder {
         {"summary": string, "decisions": [string], "action_items": [{"task": string, "owner": string|null, "due": string|null}], "follow_ups": [string]}
         Use empty arrays when there is nothing to report. Owners must be names that appear in the transcript, or null.
         """
+
+    static let chatContract = """
+        You are refining the minutes of a meeting together with the person who attended it. You have the transcript and the current minutes.
+        The transcript comes from speech recognition and can contain mistakes (names, jargon, numbers); when the person points out a correction, trust them over the transcript.
+        Re-read the transcript when it helps to decide whether something should change, and only change what the person's message affects.
+        Respond with a single JSON object and nothing else: {"reply": string, "updated_minutes": object|null}.
+        "reply" is a short answer in the person's language (what you changed and why, or the answer to their question).
+        "updated_minutes" is null when nothing needs to change. Otherwise it is the COMPLETE updated minutes, as a nested object with exactly this shape:
+        {"summary": string, "decisions": [string], "action_items": [{"task": string, "owner": string|null, "due": string|null}], "follow_ups": [string]}
+        Never invent facts that are neither in the transcript nor in the person's message.
+        """
+
+    static func chatSystem(instructions: String, transcript: String, current: MeetingSummary, meetingTitle: String) -> String {
+        let minutes = (try? JSONEncoder().encode(WireOut(current))).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        return instructions + "\n\n" + chatContract
+            + "\n\nMeeting: \(meetingTitle)\n\nTranscript:\n\(transcript)\n\nCurrent minutes:\n\(minutes)"
+    }
+
+    private struct WireOut: Encodable {
+        struct Item: Encodable { var task: String; var owner: String?; var due: String? }
+        var summary: String
+        var decisions: [String]
+        var action_items: [Item]
+        var follow_ups: [String]
+        init(_ s: MeetingSummary) {
+            summary = s.summary
+            decisions = s.decisions
+            action_items = s.actionItems.map { Item(task: $0.task, owner: $0.owner, due: $0.due) }
+            follow_ups = s.followUps
+        }
+    }
+
+    /// Tolerant: when the model ignores the contract the raw text becomes the reply and nothing changes.
+    static func parseChat(_ raw: String) -> (reply: String, updated: MeetingSummary?) {
+        var text = raw
+        if let r = text.range(of: "</think>") { text = String(text[r.upperBound...]) }
+        text = text.replacingOccurrences(of: "```json", with: "```")
+        guard let open = text.firstIndex(of: "{"), let close = text.lastIndex(of: "}"), open < close,
+            let data = String(text[open...close]).data(using: .utf8),
+            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return (raw.trimmingCharacters(in: .whitespacesAndNewlines), nil) }
+        let reply = (obj["reply"] as? String) ?? ""
+        // The minutes normally come nested under "updated_minutes"; small models often put the
+        // fields next to "reply" instead (the minutes' own "summary" key invites that), so accept both.
+        var minutes: [String: Any]?
+        if let nested = obj["updated_minutes"] as? [String: Any] ?? obj["summary"] as? [String: Any] {
+            minutes = nested
+        } else if obj["summary"] is String, obj["action_items"] != nil || obj["decisions"] != nil {
+            minutes = obj.filter { $0.key != "reply" }
+        }
+        var updated: MeetingSummary?
+        if let minutes, let data = try? JSONSerialization.data(withJSONObject: minutes),
+            let text = String(data: data, encoding: .utf8)
+        {
+            updated = try? parse(text)
+        }
+        return (reply.isEmpty ? (updated == nil ? raw : L("Done.")) : reply, updated)
+    }
 
     static func userMessage(_ r: SummaryRequest) -> String {
         let df = DateFormatter()
@@ -135,7 +219,7 @@ struct OllamaSummarizer: Summarizer {
     var providerName: String { "Ollama" }
     var modelName: String { model }
 
-    func complete(system: String, user: String) async throws -> String {
+    func complete(system: String, messages: [ChatTurn]) async throws -> String {
         guard let url = URL(string: baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/api/chat") else {
             throw SummaryError.notConfigured
         }
@@ -145,10 +229,7 @@ struct OllamaSummarizer: Summarizer {
             "format": "json",
             "think": false,
             "options": ["temperature": 0.2, "num_ctx": 32768],
-            "messages": [
-                ["role": "system", "content": system],
-                ["role": "user", "content": user],
-            ],
+            "messages": [["role": "system", "content": system]] + messages.map { ["role": $0.role, "content": $0.content] },
         ]
         var json: [String: Any]
         do {
@@ -173,7 +254,7 @@ struct OpenAICompatibleSummarizer: Summarizer {
     var providerName: String { "OpenAI-compatible" }
     var modelName: String { model }
 
-    func complete(system: String, user: String) async throws -> String {
+    func complete(system: String, messages: [ChatTurn]) async throws -> String {
         guard let url = URL(string: baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/chat/completions") else {
             throw SummaryError.notConfigured
         }
@@ -182,10 +263,7 @@ struct OpenAICompatibleSummarizer: Summarizer {
         let body: [String: Any] = [
             "model": model,
             "temperature": 0.2,
-            "messages": [
-                ["role": "system", "content": system],
-                ["role": "user", "content": user],
-            ],
+            "messages": [["role": "system", "content": system]] + messages.map { ["role": $0.role, "content": $0.content] },
         ]
         let json = try await HTTPJSON.post(url, headers: headers, body: body)
         guard let choices = json["choices"] as? [[String: Any]], let first = choices.first,
@@ -202,7 +280,7 @@ struct AnthropicSummarizer: Summarizer {
     var providerName: String { "Anthropic" }
     var modelName: String { model }
 
-    func complete(system: String, user: String) async throws -> String {
+    func complete(system: String, messages: [ChatTurn]) async throws -> String {
         guard !apiKey.isEmpty else { throw SummaryError.notConfigured }
         let url = URL(string: "https://api.anthropic.com/v1/messages")!
         let headers = [
@@ -213,7 +291,7 @@ struct AnthropicSummarizer: Summarizer {
             "model": model,
             "max_tokens": 16000,
             "system": system,
-            "messages": [["role": "user", "content": user]],
+            "messages": messages.map { ["role": $0.role, "content": $0.content] },
         ]
         let json = try await HTTPJSON.post(url, headers: headers, body: body, timeout: 600)
         if let stop = json["stop_reason"] as? String, stop == "refusal" {

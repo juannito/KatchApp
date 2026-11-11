@@ -2,6 +2,13 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.16.0 — 2026-11-11
+
+- Summary tab: icons to copy the summary (Markdown), edit it by hand (summary text, decisions, action items with owner and due date, follow-ups) and open a chat to refine it.
+- Chat with the model about a summary: tell it what to fix ("that owner is wrong", "we did not decide that") and it re-reads the transcript, answers, and rewrites the summary only when something has to change. The conversation is saved with the session (`summary-chat.json`).
+- Version history: every regenerate, manual edit or chat change first keeps the previous summary in `summary-history/`; a clock icon restores any of them. Edited summaries are tagged "edited".
+- `KatchApp --refine <folder> <message>` runs one chat turn headlessly.
+
 ## 0.15.0 — 2026-11-11
 
 - You can start recording while the models are still loading. Audio is written to disk immediately and queued; transcription catches up as soon as the models are ready. (Cold starts take ~95 s: CoreML recompiles the models for the Neural Engine whenever macOS has dropped its compiled cache, which it does between sessions. A second launch right after takes <1 s.)

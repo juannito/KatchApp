@@ -31,6 +31,29 @@ enum SelfTest {
         }
     }
 
+    /// `--refine <folder> <message> [model]`: one chat turn against the folder's current summary.
+    static func refine(folder: URL, message: String, ollamaModel: String) async -> Int32 {
+        guard let doc = SessionStore.readDocument(at: folder), let current = SummaryService.read(at: folder) else {
+            print("[refine] needs transcript.json and summary.json in \(folder.path)")
+            return 2
+        }
+        let summarizer = OllamaSummarizer(baseURL: "http://localhost:11434", model: ollamaModel)
+        let t0 = Date()
+        do {
+            let r = try await summarizer.refine(
+                transcript: PromptBuilder.transcriptText(doc, names: doc.speakerNames), current: current,
+                meetingTitle: doc.displayTitle, history: [ChatTurn(role: "user", content: message)],
+                instructions: SummarySettings.defaultInstructions)
+            print(String(format: "[refine] %.1fs  changed=%@", Date().timeIntervalSince(t0), r.updated == nil ? "no" : "yes"))
+            print("reply: \(r.reply)")
+            if let u = r.updated { print(u.markdown()) }
+            return 0
+        } catch {
+            print("[refine] ERROR: \(error.localizedDescription)")
+            return 3
+        }
+    }
+
     static func run(path: String) async -> Int32 {
         let url = URL(fileURLWithPath: path)
         print("[selftest] cargando modelos…")

@@ -42,6 +42,15 @@ if arguments.count >= 3, arguments[1] == "--selftest" {
         exit(code)
     }
     dispatchMain()
+} else if arguments.count >= 4, arguments[1] == "--refine" {
+    // KatchApp --refine <session folder> <message> [ollama model]
+    let folder = URL(fileURLWithPath: arguments[2], isDirectory: true)
+    let model = arguments.count >= 5 ? arguments[4] : "qwen3:8b"
+    Task {
+        let code = await SelfTest.refine(folder: folder, message: arguments[3], ollamaModel: model)
+        exit(code)
+    }
+    dispatchMain()
 } else {
     Migration.runIfNeeded()
     AppLog.write("launch \(Bundle.main.bundleIdentifier ?? "cli") \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] ?? "")")

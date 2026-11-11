@@ -18,9 +18,11 @@ struct MeetingSummary: Codable, Hashable {
     var generatedAt: Date
     var provider: String
     var model: String
+    /// True once a person or the chat changed what the model first wrote.
+    var edited: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case summary, decisions, actionItems = "action_items", followUps = "follow_ups", generatedAt, provider, model
+        case summary, decisions, actionItems = "action_items", followUps = "follow_ups", generatedAt, provider, model, edited
     }
 
     func markdown() -> String {
@@ -41,7 +43,7 @@ struct MeetingSummary: Codable, Hashable {
         if !followUps.isEmpty {
             md += "## \(L("Follow-ups"))\n\n" + followUps.map { "- \($0)" }.joined(separator: "\n") + "\n\n"
         }
-        md += "_\(provider) · \(model)_\n"
+        md += "_\(provider) · \(model)\(edited == true ? " · " + L("edited") : "")_\n"
         return md
     }
 }
