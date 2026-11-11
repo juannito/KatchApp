@@ -70,3 +70,33 @@ extension AudioObjectID {
         return value
     }
 }
+
+/// Calls `onChange` (on `queue`) whenever a system-wide Core Audio property changes, e.g. the
+/// default input or output device after plugging in or removing Bluetooth headphones.
+final class AudioPropertyWatcher {
+    private let block: AudioObjectPropertyListenerBlock
+    private let queue: DispatchQueue
+    private var address: AudioObjectPropertyAddress
+
+    init(selector: AudioObjectPropertySelector, queue: DispatchQueue, onChange: @escaping () -> Void) {
+        self.queue = queue
+        address = AudioObjectPropertyAddress(
+            mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        block = { _, _ in onChange() }
+        AudioObjectAddPropertyListenerBlock(.system, &address, queue, block)
+    }
+
+    deinit {
+        AudioObjectRemovePropertyListenerBlock(.system, &address, queue, block)
+    }
+}
+
+extension AudioObjectID {
+    static func readDefaultInputDevice() throws -> AudioDeviceID {
+        try AudioObjectID.system.read(kAudioHardwarePropertyDefaultInputDevice, defaultValue: AudioDeviceID.unknown)
+    }
+
+    func readDeviceName() -> String {
+        (try? read(kAudioObjectPropertyName, defaultValue: "" as CFString) as String) ?? "?"
+    }
+}

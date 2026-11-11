@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.14.1 — 2026-11-11
+
+- Recording survives audio-device changes: connecting or disconnecting Bluetooth headphones rebuilds the microphone capture and the system-audio tap on the new default devices (debounced, with retries) instead of going silent. Every rebuild is logged with the device name and sample rate.
+
 ## 0.14.0 — 2026-09-28
 
 - "Download as Markdown…" in the session actions menu: saves one .md with the header, the summary (when there is one) and then the transcript.

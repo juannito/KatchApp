@@ -14,6 +14,11 @@ final class SystemAudioTap {
     private var aggregateID: AudioObjectID = .unknown
     private var procID: AudioDeviceIOProcID?
     private let queue = DispatchQueue(label: "katchapp.systemtap", qos: .userInitiated)
+    /// Serialises start/stop/rebuild; separate from `queue`, because stopping a device from inside
+    /// its own IO queue would deadlock.
+    private let control = DispatchQueue(label: "katchapp.systemtap.control")
+    private var outputWatcher: AudioPropertyWatcher?
+    private var generation = 0
     private var format: AVAudioFormat?
     private var resampler: StreamResampler?
     private let handler: Handler
@@ -27,7 +32,41 @@ final class SystemAudioTap {
     }
 
     func start() throws {
-        guard !isRunning else { return }
+        try control.sync {
+            guard !isRunning else { return }
+            try startLocked()
+            isRunning = true
+            // The tap is bound to the output device that was default at start. When Bluetooth
+            // headphones connect or disconnect that device changes (or disappears), so rebuild.
+            outputWatcher = AudioPropertyWatcher(selector: kAudioHardwarePropertyDefaultSystemOutputDevice, queue: control) { [weak self] in
+                self?.scheduleRebuild()
+            }
+        }
+    }
+
+    private func scheduleRebuild() {
+        guard isRunning else { return }
+        generation += 1
+        let gen = generation
+        AppLog.write("system audio: default output changed")
+        control.asyncAfter(deadline: .now() + 0.5) { [self] in rebuild(generation: gen, attempt: 1) }
+    }
+
+    private func rebuild(generation gen: Int, attempt: Int) {
+        guard isRunning, gen == generation else { return }
+        teardown()
+        do {
+            try startLocked()
+            isRunning = true
+        } catch {
+            AppLog.write("system audio restart failed (attempt \(attempt)): \(error.localizedDescription)")
+            isRunning = true  // keep trying; `stop()` clears it
+            guard attempt < 8 else { return }
+            control.asyncAfter(deadline: .now() + 1) { [self] in rebuild(generation: gen, attempt: attempt + 1) }
+        }
+    }
+
+    private func startLocked() throws {
 
         let description = processes.isEmpty
             ? CATapDescription(monoGlobalTapButExcludeProcesses: [])
@@ -89,7 +128,7 @@ final class SystemAudioTap {
 
             err = AudioDeviceStart(aggregateID, procID)
             guard err == noErr else { throw AudioError("No se pudo iniciar el aggregate device (error \(err))") }
-            isRunning = true
+            AppLog.write("system audio capturing via output \(outputID.readDeviceName()) @ \(Int(fmt.sampleRate)) Hz")
         } catch {
             teardown()
             throw error
@@ -97,7 +136,12 @@ final class SystemAudioTap {
     }
 
     func stop() {
-        teardown()
+        control.sync {
+            outputWatcher = nil
+            generation += 1
+            isRunning = false
+            teardown()
+        }
     }
 
     private func teardown() {
@@ -114,7 +158,6 @@ final class SystemAudioTap {
             AudioHardwareDestroyProcessTap(tapID)
             tapID = .unknown
         }
-        isRunning = false
     }
 
     deinit { teardown() }
