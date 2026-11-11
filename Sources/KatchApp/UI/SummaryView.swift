@@ -57,6 +57,9 @@ struct SummaryView: View {
         .onChange(of: service.version) { _, _ in reload() }
     }
 
+    /// A chat turn in flight will overwrite the summary when it lands, so hand edits wait for it.
+    private var chatting: Bool { service.isChatting(folder) }
+
     private var contactNames: [String: String] {
         Dictionary(uniqueKeysWithValues: contacts.contacts.map { ($0.id, $0.name) })
     }
@@ -85,6 +88,7 @@ struct SummaryView: View {
                 }
                 .help(L("Copy the summary"))
                 Button { startEditing() } label: { Image(systemName: "pencil") }
+                    .disabled(chatting)
                     .help(L("Edit the summary"))
                 Button { showChat.toggle() } label: {
                     Image(systemName: showChat ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
@@ -102,10 +106,11 @@ struct SummaryView: View {
                     }
                     .menuIndicator(.hidden)
                     .fixedSize()
+                    .disabled(chatting)
                     .help(L("Previous versions"))
                 }
                 Button { confirmRegenerate = true } label: { Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90") }
-                    .disabled(!settings.isConfigured)
+                    .disabled(!settings.isConfigured || chatting)
                     .help(L("Regenerate the summary"))
             }
             Spacer()
@@ -268,6 +273,7 @@ struct SummaryChatPanel: View {
         let messages = service.messages(for: folder)
         let busy = service.isChatting(folder)
         VStack(alignment: .leading, spacing: 8) {
+            Color.clear.frame(height: 0).task(id: folder) { service.loadChat(folder) }
             HStack {
                 Label(L("Refine the summary"), systemImage: "bubble.left.and.bubble.right").font(.headline)
                 Spacer()

@@ -46,17 +46,22 @@ final class MicCapture {
     }
 
     func stop() {
+        // The watcher is released after `sync` returns: removing a Core Audio listener while holding
+        // the queue it delivers on could wait on itself.
+        var watcher: AudioPropertyWatcher?
         queue.sync {
             guard isRunning else { return }
             isRunning = false
             generation += 1
             if let observer { NotificationCenter.default.removeObserver(observer) }
             observer = nil
+            watcher = inputWatcher
             inputWatcher = nil
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
             handler = nil
         }
+        watcher = nil
     }
 
     /// Must run on `queue`.

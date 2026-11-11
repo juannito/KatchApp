@@ -99,15 +99,17 @@ final class SummaryService: ObservableObject {
 
     // MARK: - Chat
 
-    func messages(for folder: URL) -> [ChatMessage] {
-        if let cached = chats[folder.path] { return cached }
+    /// Reads the saved conversation into `chats`. Call from `.task`, never from a view body
+    /// (it publishes).
+    func loadChat(_ folder: URL) {
+        guard chats[folder.path] == nil else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let loaded = (try? Data(contentsOf: folder.appendingPathComponent(Self.chatFile)))
+        chats[folder.path] = (try? Data(contentsOf: folder.appendingPathComponent(Self.chatFile)))
             .flatMap { try? decoder.decode([ChatMessage].self, from: $0) } ?? []
-        chats[folder.path] = loaded
-        return loaded
     }
+
+    func messages(for folder: URL) -> [ChatMessage] { chats[folder.path] ?? [] }
 
     func isChatting(_ folder: URL) -> Bool { chatBusy.contains(folder.path) }
     func chatError(for folder: URL) -> String? { chatErrors[folder.path] }
@@ -136,6 +138,7 @@ final class SummaryService: ObservableObject {
             return
         }
         guard let doc = SessionStore.readDocument(at: folder), let current = Self.read(at: folder) else { return }
+        loadChat(folder)
         var thread = messages(for: folder)
         thread.append(ChatMessage(role: "user", text: trimmed))
         chats[folder.path] = thread
@@ -144,7 +147,10 @@ final class SummaryService: ObservableObject {
         chatErrors[folder.path] = nil
         // Earlier assistant turns are replayed in the JSON shape the contract asks for, so the
         // model keeps answering in that shape.
-        let history: [ChatTurn] = thread.suffix(20).map { m in
+        // The list must start with a user turn (Anthropic rejects anything else), so a window that
+        // begins mid-exchange drops its leading assistant replies.
+        let window = Array(thread.suffix(20).drop { $0.role != "user" })
+        let history: [ChatTurn] = window.map { m in
             if m.role == "assistant" {
                 let reply = (try? JSONSerialization.data(withJSONObject: ["reply": m.text, "updated_minutes": NSNull()]))
                     .flatMap { String(data: $0, encoding: .utf8) } ?? m.text
@@ -184,7 +190,7 @@ final class SummaryService: ObservableObject {
     }
 
     func generate(folder: URL, contactNames: [String: String]) {
-        guard !isRunning(folder) else { return }
+        guard !isRunning(folder), !isChatting(folder) else { return }
         guard let summarizer = settings.makeSummarizer(), settings.isConfigured else {
             errors[folder.path] = SummaryError.notConfigured.localizedDescription
             return

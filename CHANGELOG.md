@@ -2,6 +2,13 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.16.1 — 2026-11-11
+
+- If the speech models fail to load while you are recording, Stop now keeps the audio as a session without transcript instead of waiting forever.
+- Stopping a recording releases the device-change listeners outside their own queue (avoids a possible hang).
+- System-audio capture also follows the main default output device, not only the "sound effects" one, when headphones connect.
+- Summary chat: leaves untouched fields exactly as they were, Edit/Regenerate are disabled while a chat turn is running, and the saved conversation loads without publishing from a view update.
+
 ## 0.16.0 — 2026-11-11
 
 - Summary tab: icons to copy the summary (Markdown), edit it by hand (summary text, decisions, action items with owner and due date, follow-ups) and open a chat to refine it.

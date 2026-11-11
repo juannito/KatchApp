@@ -62,6 +62,7 @@ struct KatchAppMain: App {
                 .onReceive(modelStore.$state) { state in
                     // Switching speech model: forget the old ones so a new recording waits for the new ones.
                     if case .loading = state { session.detachModels() }
+                    if case .failed = state { session.modelsFailed() }
                     if state == .ready, let models = modelStore.models {
                         session.attach(models: models, store: sessionStore, contacts: contacts, meetingApps: meetingApps)
                     }

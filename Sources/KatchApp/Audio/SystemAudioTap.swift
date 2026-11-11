@@ -17,7 +17,7 @@ final class SystemAudioTap {
     /// Serialises start/stop/rebuild; separate from `queue`, because stopping a device from inside
     /// its own IO queue would deadlock.
     private let control = DispatchQueue(label: "katchapp.systemtap.control")
-    private var outputWatcher: AudioPropertyWatcher?
+    private var outputWatchers: [AudioPropertyWatcher] = []
     private var generation = 0
     private var format: AVAudioFormat?
     private var resampler: StreamResampler?
@@ -38,8 +38,10 @@ final class SystemAudioTap {
             isRunning = true
             // The tap is bound to the output device that was default at start. When Bluetooth
             // headphones connect or disconnect that device changes (or disappears), so rebuild.
-            outputWatcher = AudioPropertyWatcher(selector: kAudioHardwarePropertyDefaultSystemOutputDevice, queue: control) { [weak self] in
-                self?.scheduleRebuild()
+            // "System output" follows the headphones only when sound effects are routed to the selected
+            // device, so watch the main default output too; the debounce merges duplicate events.
+            outputWatchers = [kAudioHardwarePropertyDefaultSystemOutputDevice, kAudioHardwarePropertyDefaultOutputDevice].map {
+                AudioPropertyWatcher(selector: $0, queue: control) { [weak self] in self?.scheduleRebuild() }
             }
         }
     }
@@ -136,12 +138,15 @@ final class SystemAudioTap {
     }
 
     func stop() {
+        var watchers: [AudioPropertyWatcher] = []  // released after `sync`, see MicCapture.stop
         control.sync {
-            outputWatcher = nil
+            watchers = outputWatchers
+            outputWatchers = []
             generation += 1
             isRunning = false
             teardown()
         }
+        watchers.removeAll()
     }
 
     private func teardown() {

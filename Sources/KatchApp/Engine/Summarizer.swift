@@ -83,6 +83,7 @@ enum PromptBuilder {
         "reply" is a short answer in the person's language (what you changed and why, or the answer to their question).
         "updated_minutes" is null when nothing needs to change. Otherwise it is the COMPLETE updated minutes, as a nested object with exactly this shape:
         {"summary": string, "decisions": [string], "action_items": [{"task": string, "owner": string|null, "due": string|null}], "follow_ups": [string]}
+        Copy every field, item and sentence the person's message does not affect exactly as it is in the current minutes; do not reword or reorder them.
         Never invent facts that are neither in the transcript nor in the person's message.
         """
 

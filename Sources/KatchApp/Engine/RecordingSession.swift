@@ -95,7 +95,7 @@ final class RecordingSession: ObservableObject {
     var speakerSlots: [Int] { Set(segments.compactMap(\.speaker)).sorted() }
     var voiceRecognitionAvailable: Bool { models?.fingerprinter != nil }
 
-    private var modelWaiters: [CheckedContinuation<LoadedModels, Never>] = []
+    private var modelWaiters: [CheckedContinuation<LoadedModels?, Never>] = []
 
     /// Wires the stores in before the models finish loading, so recording can start right away.
     func attachServices(store: SessionStore, contacts: ContactStore, meetingApps: MeetingAppRegistry) {
@@ -120,8 +120,15 @@ final class RecordingSession: ObservableObject {
     /// Detaches the current models (the user is switching speech model).
     func detachModels() { models = nil }
 
-    /// Returns the loaded models, suspending until `attach(models:)` delivers them.
-    private func awaitModels() async -> LoadedModels {
+    /// The model load failed: recordings waiting for it keep their audio but get no transcript.
+    func modelsFailed() {
+        let waiters = modelWaiters
+        modelWaiters = []
+        for w in waiters { w.resume(returning: nil) }
+    }
+
+    /// Returns the loaded models, suspending until `attach(models:)` delivers them (nil if loading failed).
+    private func awaitModels() async -> LoadedModels? {
         if let models { return models }
         return await withCheckedContinuation { modelWaiters.append($0) }
     }
@@ -219,7 +226,12 @@ final class RecordingSession: ObservableObject {
         }
         feederTask = Task { [weak self] in
             guard let self else { return }
-            let models = await self.awaitModels()
+            guard let models = await self.awaitModels() else {
+                // No transcription possible: keep draining so the buffer does not grow; the WAV is
+                // already being written from the capture callback.
+                for await _ in stream {}
+                return
+            }
             let engine = TranscriptionEngine(models: models)
             self.engine = engine
             self.eventTask = Task { [weak self] in
@@ -353,8 +365,18 @@ final class RecordingSession: ObservableObject {
         await feederTask?.value
         await eventTask?.value
         guard let engine else {
+            // Models never loaded: the audio is intact, so keep it as a session without transcript.
+            await wav?.finish()
+            var doc = currentDocument()
+            doc.endedAt = Date()
+            document = doc
+            autosave()
+            AppLog.write("recording stopped without models: audio kept in \(sessionFolder?.lastPathComponent ?? "?")")
             cleanupCapture()
+            store?.reload()
+            clearLiveState()
             status = .idle
+            message = L("The speech models could not be loaded. The audio was saved without a transcript.")
             return
         }
         await finishSession(engine: engine, log: "recording stopped:")
