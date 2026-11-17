@@ -16,7 +16,7 @@ enum SelfTest {
         let summarizer = OllamaSummarizer(baseURL: "http://localhost:11434", model: ollamaModel)
         let request = SummaryRequest(
             instructions: SummarySettings.defaultInstructions, transcript: transcript,
-            meetingTitle: doc.displayTitle, meetingDate: doc.startedAt)
+            meetingTitle: doc.displayTitle, meetingDate: doc.startedAt, questions: doc.questions)
         let t0 = Date()
         do {
             let summary = try await summarizer.summarize(request)
@@ -43,7 +43,7 @@ enum SelfTest {
             let r = try await summarizer.refine(
                 transcript: PromptBuilder.transcriptText(doc, names: doc.speakerNames), current: current,
                 meetingTitle: doc.displayTitle, history: [ChatTurn(role: "user", content: message)],
-                instructions: SummarySettings.defaultInstructions)
+                instructions: SummarySettings.defaultInstructions, questions: doc.questions)
             print(String(format: "[refine] %.1fs  changed=%@", Date().timeIntervalSince(t0), r.updated == nil ? "no" : "yes"))
             print("reply: \(r.reply)")
             if let u = r.updated { print(u.markdown()) }

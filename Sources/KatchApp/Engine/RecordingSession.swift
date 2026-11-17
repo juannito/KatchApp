@@ -32,6 +32,13 @@ final class RecordingSession: ObservableObject {
     @Published var micMuted = false { didSet { mixBus?.micMuted = micMuted } }
     /// Streaming ASR: words heard but not yet committed.
     @Published var partialText = ""
+    /// Prepared questions: a draft while idle (kept between launches), checked live while recording.
+    @Published var questions: [MeetingQuestion] = RecordingSession.loadQuestionDraft() {
+        didSet { Self.saveQuestionDraft(questions) }
+    }
+    /// Only a recording carries the questions into its document; an imported file does not.
+    private var sessionHasQuestions = false
+    private static let questionsDefaultsKey = "questionsDraft"
     static let systemAudioDefaultsKey = "captureSystemAudio"
     private var pausedAt: Date?
     private var pausedTotal: TimeInterval = 0
@@ -176,6 +183,8 @@ final class RecordingSession: ObservableObject {
         speakerMicFraction = [:]
         elapsed = 0
         startedAt = Date()
+        sessionHasQuestions = true
+        uncheckQuestions()
 
         if micEnabled {
             let ok = await MicCapture.requestPermission()
@@ -398,6 +407,7 @@ final class RecordingSession: ObservableObject {
         segments = []
         speakerNames = [:]
         speakerMicFraction = [:]
+        sessionHasQuestions = false
         elapsed = 0
         startedAt = Date()
         status = .importing(progress: 0)
@@ -561,6 +571,8 @@ final class RecordingSession: ObservableObject {
         }
         AppLog.write("session saved: \(folder.lastPathComponent) title=\(doc.displayTitle) project=\(project ?? "-") links=\(links.count)")
         pendingSave = nil
+        // The questions now live in the saved session; the next meeting starts with a clean list.
+        if !doc.questions.isEmpty { questions = [] }
         clearLiveState()
     }
 
@@ -579,6 +591,7 @@ final class RecordingSession: ObservableObject {
         }
         store?.reload()
         pendingSave = nil
+        uncheckQuestions()
         clearLiveState()
     }
 
@@ -686,7 +699,41 @@ final class RecordingSession: ObservableObject {
         doc.segments = segments
         doc.speakerNames = speakerNames
         doc.speakerMicFraction = speakerMicFraction
+        doc.questions = sessionHasQuestions ? questions : []
         return doc
+    }
+
+    // MARK: - Questions
+
+    private static func loadQuestionDraft() -> [MeetingQuestion] {
+        UserDefaults.standard.data(forKey: questionsDefaultsKey)
+            .flatMap { try? JSONDecoder().decode([MeetingQuestion].self, from: $0) } ?? []
+    }
+
+    private static func saveQuestionDraft(_ questions: [MeetingQuestion]) {
+        if let data = try? JSONEncoder().encode(questions) {
+            UserDefaults.standard.set(data, forKey: questionsDefaultsKey)
+        }
+    }
+
+    var canCheckQuestions: Bool { status == .recording || status == .paused }
+
+    func addQuestions(from text: String) {
+        questions.append(contentsOf: MeetingQuestion.parse(text).map { MeetingQuestion(text: $0) })
+    }
+
+    func removeQuestion(_ id: UUID) {
+        questions.removeAll { $0.id == id }
+    }
+
+    /// Marks or unmarks a question; the mark keeps the recording time, the same clock as the transcript.
+    func toggleQuestion(_ id: UUID) {
+        guard canCheckQuestions, let i = questions.firstIndex(where: { $0.id == id }) else { return }
+        questions[i].checkedAt = questions[i].checkedAt == nil ? elapsed : nil
+    }
+
+    private func uncheckQuestions() {
+        for i in questions.indices { questions[i].checkedAt = nil }
     }
 
     /// Writes the current state to disk (crash safety); does not touch the history list.

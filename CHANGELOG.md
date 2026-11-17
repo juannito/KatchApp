@@ -2,6 +2,12 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.17.0 — 2026-11-17
+
+- Questions checklist in "New meeting", below the speakers: write what you want answered before or during the recording (one per line; a pasted list splits itself) and check each one as it gets answered. The check stores the recording time. The draft survives relaunches and starts the next meeting clean once saved.
+- The summary gets a "Questions" section: for each question, whether it was answered, partly or not, and what was said. The model judges from the transcript; your check is only a hint, and the summary flags the ones you marked that were not fully answered. Also in the Markdown export, and the chat can correct them.
+- Older sessions and summaries without questions load unchanged.
+
 ## 0.16.1 — 2026-11-11
 
 - If the speech models fail to load while you are recording, Stop now keeps the audio as a session without transcript instead of waiting forever.

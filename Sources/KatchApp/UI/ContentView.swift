@@ -441,8 +441,11 @@ struct LiveView: View {
             HSplitView {
                 transcriptArea
                     .frame(minWidth: 320)
-                LiveSpeakersPanel()
-                    .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
+                VSplitView {
+                    LiveSpeakersPanel().frame(minHeight: 100)
+                    QuestionsPanel().frame(minHeight: 140, idealHeight: 220)
+                }
+                .frame(minWidth: 180, idealWidth: 240, maxWidth: 320)
             }
             Divider()
             footer

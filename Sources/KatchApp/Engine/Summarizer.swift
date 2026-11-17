@@ -5,6 +5,8 @@ struct SummaryRequest {
     let transcript: String       // "[00:12] Name: text" lines
     let meetingTitle: String
     let meetingDate: Date
+    /// Questions the person prepared; the minutes then carry a verdict per question.
+    var questions: [MeetingQuestion] = []
 }
 
 enum SummaryError: LocalizedError {
@@ -42,11 +44,11 @@ extension Summarizer {
     /// One turn of the "refine the minutes" conversation. The model sees the transcript and the
     /// current minutes and answers with a reply plus, only when something must change, the full
     /// updated minutes.
-    func refine(transcript: String, current: MeetingSummary, meetingTitle: String, history: [ChatTurn], instructions: String) async throws -> (reply: String, updated: MeetingSummary?) {
-        let system = PromptBuilder.chatSystem(instructions: instructions, transcript: transcript, current: current, meetingTitle: meetingTitle)
+    func refine(transcript: String, current: MeetingSummary, meetingTitle: String, history: [ChatTurn], instructions: String, questions: [MeetingQuestion] = []) async throws -> (reply: String, updated: MeetingSummary?) {
+        let system = PromptBuilder.chatSystem(instructions: instructions, transcript: transcript, current: current, meetingTitle: meetingTitle, questions: questions)
         let raw = try await complete(system: system, messages: history)
         if ProcessInfo.processInfo.environment["KATCHAPP_DEBUG_CHAT"] != nil { print("[raw]\n\(raw)\n[/raw]") }
-        var parsed = PromptBuilder.parseChat(raw)
+        var parsed = PromptBuilder.parseChat(raw, questions: questions, keeping: current.questions)
         if parsed.updated != nil {
             parsed.updated?.generatedAt = Date()
             parsed.updated?.provider = providerName
@@ -57,10 +59,11 @@ extension Summarizer {
     }
 
     func summarize(_ request: SummaryRequest) async throws -> MeetingSummary {
-        let system = request.instructions + "\n\n" + PromptBuilder.formatContract
+        var system = request.instructions + "\n\n" + PromptBuilder.formatContract
+        if !request.questions.isEmpty { system += "\n\n" + PromptBuilder.questionsContract }
         let user = PromptBuilder.userMessage(request)
         let raw = try await complete(system: system, user: user)
-        var parsed = try PromptBuilder.parse(raw)
+        var parsed = try PromptBuilder.parse(raw, questions: request.questions)
         parsed.generatedAt = Date()
         parsed.provider = providerName
         parsed.model = modelName
@@ -75,6 +78,17 @@ enum PromptBuilder {
         Use empty arrays when there is nothing to report. Owners must be names that appear in the transcript, or null.
         """
 
+    static let questionsContract = """
+        The person listed questions they wanted answered in this meeting; they are numbered in the user message. Add a key "questions" to the JSON object:
+        "questions": [{"id": number, "status": "answered"|"partial"|"unanswered", "answer": string|null}], one entry per question, using the same numbers.
+        Judge only from the transcript: "answered" when it was clearly addressed, "partial" when only partly or vaguely, "unanswered" when it was not addressed. "answer" is one or two sentences with what was actually said, or null when unanswered.
+        The person's own checkmarks (shown with the time) are a hint, not proof: do not agree with one if the transcript says otherwise.
+        """
+
+    static let chatQuestionsContract = """
+        The minutes also carry "questions" (the person's prepared questions, numbered): keep that key in updated_minutes with the same shape, [{"id": number, "status": "answered"|"partial"|"unanswered", "answer": string|null}], and change an entry only when the person's message or the transcript requires it.
+        """
+
     static let chatContract = """
         You are refining the minutes of a meeting together with the person who attended it. You have the transcript and the current minutes.
         The transcript comes from speech recognition and can contain mistakes (names, jargon, numbers); when the person points out a correction, trust them over the transcript.
@@ -87,10 +101,22 @@ enum PromptBuilder {
         Never invent facts that are neither in the transcript nor in the person's message.
         """
 
-    static func chatSystem(instructions: String, transcript: String, current: MeetingSummary, meetingTitle: String) -> String {
+    static func chatSystem(instructions: String, transcript: String, current: MeetingSummary, meetingTitle: String, questions: [MeetingQuestion] = []) -> String {
         let minutes = (try? JSONEncoder().encode(WireOut(current))).flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        return instructions + "\n\n" + chatContract
-            + "\n\nMeeting: \(meetingTitle)\n\nTranscript:\n\(transcript)\n\nCurrent minutes:\n\(minutes)"
+        var system = instructions + "\n\n" + chatContract
+        if current.questions != nil { system += "\n" + chatQuestionsContract }
+        system += "\n\nMeeting: \(meetingTitle)\n\nTranscript:\n\(transcript)"
+        if !questions.isEmpty { system += "\n\n" + questionsBlock(questions) }
+        return system + "\n\nCurrent minutes:\n\(minutes)"
+    }
+
+    /// "Questions the person wanted answered", numbered, each with the time they marked it.
+    static func questionsBlock(_ questions: [MeetingQuestion]) -> String {
+        let lines = questions.enumerated().map { i, q in
+            let mark = q.checkedAt.map { " [the person marked it answered at \(TimeFormat.clock($0))]" } ?? ""
+            return "\(i + 1). \(q.text)\(mark)"
+        }
+        return "Questions the person wanted answered:\n" + lines.joined(separator: "\n")
     }
 
     private struct WireOut: Encodable {
@@ -99,16 +125,19 @@ enum PromptBuilder {
         var decisions: [String]
         var action_items: [Item]
         var follow_ups: [String]
+        var questions: [Verdict]?
+        struct Verdict: Encodable { var id: Int; var status: String; var answer: String? }
         init(_ s: MeetingSummary) {
             summary = s.summary
             decisions = s.decisions
             action_items = s.actionItems.map { Item(task: $0.task, owner: $0.owner, due: $0.due) }
             follow_ups = s.followUps
+            questions = s.questions?.enumerated().map { Verdict(id: $0 + 1, status: $1.status.rawValue, answer: $1.answer) }
         }
     }
 
     /// Tolerant: when the model ignores the contract the raw text becomes the reply and nothing changes.
-    static func parseChat(_ raw: String) -> (reply: String, updated: MeetingSummary?) {
+    static func parseChat(_ raw: String, questions: [MeetingQuestion] = [], keeping: [QuestionAnswer]? = nil) -> (reply: String, updated: MeetingSummary?) {
         var text = raw
         if let r = text.range(of: "</think>") { text = String(text[r.upperBound...]) }
         text = text.replacingOccurrences(of: "```json", with: "```")
@@ -129,7 +158,7 @@ enum PromptBuilder {
         if let minutes, let data = try? JSONSerialization.data(withJSONObject: minutes),
             let text = String(data: data, encoding: .utf8)
         {
-            updated = try? parse(text)
+            updated = try? parse(text, questions: questions, keeping: keeping)
         }
         return (reply.isEmpty ? (updated == nil ? raw : L("Done.")) : reply, updated)
     }
@@ -138,7 +167,9 @@ enum PromptBuilder {
         let df = DateFormatter()
         df.dateStyle = .long
         df.timeStyle = .short
-        return "Meeting: \(r.meetingTitle)\nDate: \(df.string(from: r.meetingDate))\n\nTranscript:\n\(r.transcript)"
+        var out = "Meeting: \(r.meetingTitle)\nDate: \(df.string(from: r.meetingDate))\n\nTranscript:\n\(r.transcript)"
+        if !r.questions.isEmpty { out += "\n\n" + questionsBlock(r.questions) }
+        return out
     }
 
     static func transcriptText(_ doc: SessionDocument, names: [Int: String]) -> String {
@@ -147,8 +178,39 @@ enum PromptBuilder {
         }.joined(separator: "\n")
     }
 
+    struct WireVerdict: Decodable {
+        var id: Int?
+        var status: String?
+        var answer: String?
+        private enum CodingKeys: String, CodingKey { case id, status, answer }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            // Small models sometimes quote the number.
+            id = (try? c.decodeIfPresent(Int.self, forKey: .id)) ?? (try? c.decodeIfPresent(String.self, forKey: .id)).flatMap { Int($0) }
+            status = try? c.decodeIfPresent(String.self, forKey: .status)
+            answer = try? c.decodeIfPresent(String.self, forKey: .answer)
+        }
+    }
+
+    /// One verdict per prepared question, in order. Text and check time come from the session; the
+    /// model only supplies status and answer, and a question it skipped counts as unanswered.
+    /// When it left the whole key out (a chat rewrite that did not touch them), `keeping` stands.
+    static func verdicts(_ wire: [WireVerdict]?, for questions: [MeetingQuestion], keeping: [QuestionAnswer]?) -> [QuestionAnswer]? {
+        guard !questions.isEmpty else { return nil }
+        if wire == nil, let keeping, keeping.count == questions.count { return keeping }
+        return questions.enumerated().map { i, q in
+            let w = wire?.first { $0.id == i + 1 }
+            let answer = w?.answer?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return QuestionAnswer(
+                question: q.text,
+                status: QuestionStatus(rawValue: w?.status?.lowercased() ?? "") ?? .unanswered,
+                answer: (answer?.isEmpty ?? true) ? nil : answer,
+                checkedAt: q.checkedAt)
+        }
+    }
+
     /// Tolerant JSON extraction: strips <think> blocks and code fences, then takes the outermost {...}.
-    static func parse(_ raw: String) throws -> MeetingSummary {
+    static func parse(_ raw: String, questions: [MeetingQuestion] = [], keeping: [QuestionAnswer]? = nil) throws -> MeetingSummary {
         var text = raw
         if let r = text.range(of: "</think>") { text = String(text[r.upperBound...]) }
         text = text.replacingOccurrences(of: "```json", with: "```")
@@ -161,6 +223,7 @@ enum PromptBuilder {
             var decisions: [String]?
             var action_items: [WireItem]?
             var follow_ups: [String]?
+            var questions: [WireVerdict]?
         }
         struct WireItem: Decodable {
             var task: String?
@@ -177,6 +240,7 @@ enum PromptBuilder {
                     return ActionItem(task: t, owner: i.owner, due: i.due)
                 },
                 followUps: w.follow_ups ?? [],
+                questions: verdicts(w.questions, for: questions, keeping: keeping),
                 generatedAt: Date(), provider: "", model: "")
         } catch {
             throw SummaryError.badResponse(String(raw.prefix(200)))

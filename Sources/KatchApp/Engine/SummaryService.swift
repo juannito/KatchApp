@@ -161,11 +161,13 @@ final class SummaryService: ObservableObject {
         let transcript = PromptBuilder.transcriptText(doc, names: doc.effectiveNames(contactNames: contactNames))
         let title = doc.displayTitle
         let instructions = settings.instructions
+        let questions = doc.questions
         AppLog.write("summary chat: \(folder.lastPathComponent) via \(summarizer.providerName)/\(summarizer.modelName)")
         Task {
             do {
                 let result = try await summarizer.refine(
-                    transcript: transcript, current: current, meetingTitle: title, history: history, instructions: instructions)
+                    transcript: transcript, current: current, meetingTitle: title, history: history, instructions: instructions,
+                    questions: questions)
                 var changed = false
                 if let updated = result.updated {
                     try Self.write(updated, to: folder)
@@ -201,7 +203,8 @@ final class SummaryService: ObservableObject {
             instructions: settings.instructions,
             transcript: PromptBuilder.transcriptText(doc, names: names),
             meetingTitle: doc.displayTitle,
-            meetingDate: doc.startedAt)
+            meetingDate: doc.startedAt,
+            questions: doc.questions)
         inProgress.insert(folder.path)
         errors[folder.path] = nil
         AppLog.write("summary started: \(folder.lastPathComponent) via \(summarizer.providerName)/\(summarizer.modelName)")

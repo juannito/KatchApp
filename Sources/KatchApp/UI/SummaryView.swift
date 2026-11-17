@@ -171,6 +171,24 @@ struct SummaryView: View {
             }
         }
         section(L("Follow-ups")) { bullets(s.followUps) }
+        if let questions = s.questions, !questions.isEmpty {
+            section(L("Questions")) {
+                ForEach(questions) { q in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: q.status == .answered ? "checkmark.circle.fill" : q.status == .partial ? "circle.lefthalf.filled" : "xmark.circle")
+                            .foregroundStyle(q.status == .answered ? Color.green : q.status == .partial ? Color.orange : Color.red)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(q.question).fontWeight(.medium).textSelection(.enabled)
+                            if let a = q.answer, !a.isEmpty { Text(a).textSelection(.enabled) }
+                            if let t = q.checkedAt {
+                                Text(L("marked at %@", TimeFormat.clock(t)) + (q.disagreesWithCheck ? " · " + L("not fully answered") : ""))
+                                    .font(.caption).foregroundStyle(q.disagreesWithCheck ? Color.orange : Color.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Editing
@@ -197,6 +215,7 @@ struct SummaryView: View {
 
     @ViewBuilder
     private var editor: some View {
+        // Question verdicts are not editable by hand (use the chat); they are kept as they are.
         section(L("Summary")) { textBox($draft.summary, minHeight: 140) }
         section(L("Decisions")) {
             textBox($decisionsText, minHeight: 80)

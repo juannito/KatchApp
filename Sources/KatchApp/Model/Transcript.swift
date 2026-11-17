@@ -41,6 +41,7 @@ struct SessionDocument: Codable {
     var speakerEmbeddings: [Int: [Float]] = [:]  // slot -> CAM++ voice embedding
     var platform: String? = nil                  // bundle id of the meeting app (Zoom, Teams…)
     var platformName: String? = nil
+    var questions: [MeetingQuestion] = []        // prepared questions, checked live while recording
     var segments: [TranscriptSegment]
 
     init(
@@ -64,7 +65,7 @@ struct SessionDocument: Codable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, project, startedAt, endedAt, micEnabled, systemAudioEnabled, speakerNames, speakerMicFraction
-        case speakerContacts, speakerEmbeddings, platform, platformName, segments
+        case speakerContacts, speakerEmbeddings, platform, platformName, questions, segments
     }
 
     init(from decoder: Decoder) throws {
@@ -82,6 +83,7 @@ struct SessionDocument: Codable {
         speakerEmbeddings = try c.decodeIfPresent([Int: [Float]].self, forKey: .speakerEmbeddings) ?? [:]
         platform = try c.decodeIfPresent(String.self, forKey: .platform)
         platformName = try c.decodeIfPresent(String.self, forKey: .platformName)
+        questions = try c.decodeIfPresent([MeetingQuestion].self, forKey: .questions) ?? []
         segments = try c.decodeIfPresent([TranscriptSegment].self, forKey: .segments) ?? []
     }
 
@@ -104,6 +106,24 @@ struct SessionDocument: Codable {
             if let n = contactNames[cid] { names[slot] = n }
         }
         return names
+    }
+}
+
+/// A question the person wants answered in the meeting. `checkedAt` is the recording time (same
+/// clock as the transcript) at which they marked it as answered; nil while unchecked.
+struct MeetingQuestion: Codable, Identifiable, Hashable {
+    var id = UUID()
+    var text: String
+    var checkedAt: TimeInterval?
+
+    /// Splits pasted text into one question per line, dropping list markers ("-", "•", "1.", "[ ]").
+    static func parse(_ raw: String) -> [String] {
+        raw.split(whereSeparator: \.isNewline).compactMap { line in
+            var t = line.trimmingCharacters(in: .whitespaces)
+            if let r = t.range(of: #"^(?:[-*•–]|\d+[.)]|\[[ xX]?\])(?:\s+|$)"#, options: .regularExpression) { t.removeSubrange(r) }
+            t = t.trimmingCharacters(in: .whitespaces)
+            return t.isEmpty ? nil : t
+        }
     }
 }
 
