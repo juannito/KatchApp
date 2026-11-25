@@ -374,6 +374,15 @@ enum L10n {
             "Clear chat": "Borrar chat",
             "Tell the model what to fix, e.g. “the owner of the second action item is Eduardo” or “we did not decide to postpone”. It re-reads the transcript and updates the summary when needed.":
                 "Decile al modelo qué corregir, por ejemplo “el responsable de la segunda tarea es Eduardo” o “no decidimos postergar”. Relee la transcripción y actualiza el resumen si hace falta.",
+            "Transcription language": "Idioma de la transcripción",
+            "Auto-detect": "Detectar automáticamente",
+            "Spanish": "Español",
+            "Portuguese": "Portugués",
+            "French": "Francés",
+            "German": "Alemán",
+            "Italian": "Italiano",
+            "Applies to the next recording, with Nemotron only. Forcing a language stops it from writing Spanish speech as broken English, but words from other languages get spelled the Spanish way. Parakeet always detects the language by itself.":
+                "Se aplica a la próxima grabación y solo con Nemotron. Fijar el idioma evita que el español se escriba como inglés roto, pero las palabras de otros idiomas se escriben a la española. Parakeet siempre detecta el idioma solo.",
             "Thinking…": "Pensando…",
             "Message": "Mensaje",
             "Summary updated": "Resumen actualizado",

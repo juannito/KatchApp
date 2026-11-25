@@ -132,3 +132,34 @@ enum AsrModelChoice: String, CaseIterable, Identifiable {
         try FileManager.default.removeItem(at: folderURL)
     }
 }
+
+/// Language the streaming model (Nemotron) is told to expect. Parakeet picks its language on its
+/// own per segment and has no way to be forced, so this only applies to Nemotron.
+enum AsrLanguage: String, CaseIterable, Identifiable {
+    case auto, spanish = "es-ES", english = "en-US", portuguese = "pt-BR", french = "fr-FR", german = "de-DE", italian = "it-IT"
+
+    static let defaultsKey = "asrLanguage"
+    var id: String { rawValue }
+
+    static var current: AsrLanguage {
+        get { AsrLanguage(rawValue: UserDefaults.standard.string(forKey: defaultsKey) ?? "") ?? .auto }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: defaultsKey) }
+    }
+
+    /// Prompt code handed to Nemotron. KATCHAPP_NEMOTRON_PROMPT still overrides it for experiments.
+    static var promptCode: String {
+        ProcessInfo.processInfo.environment["KATCHAPP_NEMOTRON_PROMPT"] ?? current.rawValue
+    }
+
+    var title: String {
+        switch self {
+        case .auto: return L("Auto-detect")
+        case .spanish: return L("Spanish")
+        case .english: return L("English")
+        case .portuguese: return L("Portuguese")
+        case .french: return L("French")
+        case .german: return L("German")
+        case .italian: return L("Italian")
+        }
+    }
+}

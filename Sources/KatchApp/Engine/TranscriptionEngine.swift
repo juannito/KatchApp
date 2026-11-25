@@ -143,7 +143,7 @@ actor TranscriptionEngine {
         if let streamingAsr { return streamingAsr }
         let m = StreamingNemotronMultilingualAsrManager()
         try await m.loadFromShared(shared)
-        await m.setLanguage(ProcessInfo.processInfo.environment["KATCHAPP_NEMOTRON_PROMPT"] ?? "auto")
+        await m.setLanguage(AsrLanguage.promptCode)
         // Warm-up: the first chunk of a fresh stream tends to drop the opening word, so feed
         // half a second of silence first and shift every timestamp back by that amount.
         _ = try await m.process(samples: [Float](repeating: 0, count: Self.streamingWarmupSamples))

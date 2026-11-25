@@ -2,6 +2,11 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.18.0 — 2026-11-25
+
+- Settings > Speech recognition: new "Transcription language" (Auto-detect, Spanish, English, Portuguese, French, German, Italian). It tells Nemotron which language to expect, applied from the next recording, no model reload. On a 29-minute Spanish meeting it removed all 10 segments that Parakeet v3 had written as English (0 vs 10), with almost the same amount of text. The cost: words from another language are spelled the Spanish way ("CAF Investors" came out "Caffein Bestos").
+- Parakeet has no way to be forced (its `language:` hint only separates scripts, not Spanish from English), so the setting only affects Nemotron. Default stays Auto-detect.
+
 ## 0.17.2 — 2026-11-25
 
 - FluidAudio 0.17.4 → 0.18.3. The package now ships diarization as an opt-in trait, so `Package.swift` enables `Diarizer` explicitly (nothing else). Checked on a 29-minute Spanish meeting: same 5 speakers, 96 % word-level agreement with 0.17.4, ~6 % more recognised words.

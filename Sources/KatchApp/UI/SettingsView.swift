@@ -291,6 +291,7 @@ struct ModelsSettingsView: View {
     @State private var downloaded: Set<AsrModelChoice> = []
     @State private var sizes: [AsrModelChoice: Int64] = [:]
     @State private var confirmDelete: AsrModelChoice?
+    @State private var language: AsrLanguage = .current
 
     private var busy: Bool {
         if case .loading = modelStore.state { return true }
@@ -343,6 +344,17 @@ struct ModelsSettingsView: View {
                     Text(L("Finish the current recording before switching models.")).font(.caption).foregroundStyle(.secondary)
                 }
                 Text(L("Every model runs on the Neural Engine and gives word timestamps, which speaker separation and playback need. Whisper and Canary are not offered: they return text without per-word timing. Models are stored in ~/Library/Application Support/FluidAudio/Models."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("Transcription language")) {
+                Picker(L("Language"), selection: $language) {
+                    ForEach(AsrLanguage.allCases) { l in Text(l.title).tag(l) }
+                }
+                .onChange(of: language) { _, l in
+                    AsrLanguage.current = l
+                    AppLog.write("asr language selected: \(l.rawValue)")
+                }
+                Text(L("Applies to the next recording, with Nemotron only. Forcing a language stops it from writing Spanish speech as broken English, but words from other languages get spelled the Spanish way. Parakeet always detects the language by itself."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section(L("Also loaded")) {
