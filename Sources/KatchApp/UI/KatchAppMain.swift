@@ -54,6 +54,10 @@ struct KatchAppMain: App {
                     sessionStore.reload()
                     contacts.reload()
                     session.attachServices(store: sessionStore, contacts: contacts, meetingApps: meetingApps)
+                    if summarySettings.provider == .ollama {
+                        let url = summarySettings.ollamaURL
+                        Task { _ = await OllamaLauncher.shared.ensureRunning(baseURL: url) }
+                    }
                     await modelStore.loadIfNeeded()
                     if let models = modelStore.models {
                         session.attach(models: models, store: sessionStore, contacts: contacts, meetingApps: meetingApps)

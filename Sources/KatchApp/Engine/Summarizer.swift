@@ -288,6 +288,12 @@ struct OllamaSummarizer: Summarizer {
         guard let url = URL(string: baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/api/chat") else {
             throw SummaryError.notConfigured
         }
+        guard await OllamaLauncher.shared.ensureRunning(baseURL: baseURL) else {
+            throw SummaryError.network(
+                OllamaLauncher.isLocal(baseURL)
+                    ? L("Ollama is not running and could not be started. Open the Ollama app and try again.")
+                    : L("Ollama is not reachable at %@.", baseURL))
+        }
         var body: [String: Any] = [
             "model": model,
             "stream": false,

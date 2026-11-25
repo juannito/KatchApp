@@ -380,6 +380,9 @@ enum L10n {
             "Done.": "Listo.",
             "Installed models": "Modelos instalados",
             "Refresh": "Actualizar",
+            "Ollama is not running and could not be started. Open the Ollama app and try again.":
+                "Ollama no está corriendo y no se pudo iniciar. Abrí la app de Ollama y probá de nuevo.",
+            "Ollama is not reachable at %@.": "Ollama no responde en %@.",
             "Ollama is not running or unreachable at this URL.": "Ollama no está corriendo o no responde en esa URL.",
             "Model “%@” is installed.": "El modelo “%@” está instalado.",
             "Model “%@” is not installed.": "El modelo “%@” no está instalado.",

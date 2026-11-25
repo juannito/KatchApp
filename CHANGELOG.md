@@ -2,6 +2,11 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.17.1 — 2026-11-25
+
+- Summaries with Ollama no longer fail with a generic "could not connect to the server" when Ollama is not running: KatchApp starts it (Ollama.app, or `ollama serve` as a fallback) and waits for it, both at launch and right before generating a summary. Only for localhost URLs.
+- If Ollama still cannot be started, the error says so ("Ollama is not running and could not be started…"); for a remote URL it says the server is not reachable at that address.
+
 ## 0.17.0 — 2026-11-17
 
 - Questions checklist in "New meeting", below the speakers: write what you want answered before or during the recording (one per line; a pasted list splits itself) and check each one as it gets answered. The check stores the recording time. The draft survives relaunches and starts the next meeting clean once saved.
