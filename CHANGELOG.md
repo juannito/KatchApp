@@ -2,6 +2,10 @@
 
 One entry per version. Minor (0.x.0) for new features, patch (0.x.y) for fixes.
 
+## 0.17.2 — 2026-11-25
+
+- FluidAudio 0.17.4 → 0.18.3. The package now ships diarization as an opt-in trait, so `Package.swift` enables `Diarizer` explicitly (nothing else). Checked on a 29-minute Spanish meeting: same 5 speakers, 96 % word-level agreement with 0.17.4, ~6 % more recognised words.
+
 ## 0.17.1 — 2026-11-25
 
 - Summaries with Ollama no longer fail with a generic "could not connect to the server" when Ollama is not running: KatchApp starts it (Ollama.app, or `ollama serve` as a fallback) and waits for it, both at launch and right before generating a summary. Only for localhost URLs.
